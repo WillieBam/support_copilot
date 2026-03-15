@@ -1,0 +1,31 @@
+:root {
+  --text: #112430;
+  --muted: #496472;
+  --bg: #f4f2e9;
+  --accent: #0f8f77;
+  --paper: #ffffff;
+  font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+  line-height: 1.45;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  color: var(--text);
+  background:
+    linear-gradient(140deg, #f4f2e9 0%, #e7f2ec 50%, #fff8ea 100%);
+}
+
+#root {
+  min-height: 100vh;
+}
