@@ -32,7 +32,12 @@ type Config struct {
 	}
 
 	Auth struct {
-		Enabled bool
+		Enabled      bool
+		TOTPRequired bool `mapstructure:"totp_required"`
+	}
+
+	Firebase struct {
+		ProjectID string `mapstructure:"project_id"`
 	}
 
 	Gemini struct {
@@ -67,6 +72,8 @@ func newConfig() IConfig {
 	cfg.SetDefault("database.password", "password")
 	cfg.SetDefault("database.name", "support_copilot")
 	cfg.SetDefault("auth.enabled", false)
+	cfg.SetDefault("auth.totp_required", false)
+	cfg.SetDefault("firebase.project_id", "")
 	cfg.SetDefault("gemini.api_key", "")
 	cfg.SetDefault("gemini.model", "gemini-2.5-flash")
 	cfg.SetDefault("gemini.base_url", "https://generativelanguage.googleapis.com")

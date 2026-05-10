@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
+import AuthPanel from './components/AuthPanel'
+import { MantineProvider } from '@mantine/core';
+import { useFirebaseTotpAuth } from './auth/useFirebaseTotpAuth'
 import './App.css'
 type Role = 'user' | 'assistant'
 
@@ -11,7 +14,7 @@ type ChatMessage = {
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
 
 function App() {
-  const [token, setToken] = useState('')
+  const auth = useFirebaseTotpAuth()
   const [prompt, setPrompt] = useState('')
   const [isSending, setIsSending] = useState(false)
   const [error, setError] = useState('')
@@ -39,7 +42,7 @@ function App() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token.trim() ? { Authorization: token.trim() } : {}),
+          ...(auth.token.trim() ? { Authorization: auth.token.trim() } : {}),
         },
         body: JSON.stringify({ input }),
       })
@@ -65,7 +68,7 @@ function App() {
       setIsSending(false)
     }
   }
-
+    <AuthPanel {...auth} />
   return (
     <div className="page-shell">
       <main className="chat-panel">
@@ -74,18 +77,6 @@ function App() {
           <h1>Gemini Chat Console</h1>
           <p className="header-subtitle">Connected to {endpoint}</p>
         </header>
-
-        <section className="auth-box">
-          <label htmlFor="token">Authorization Token (optional in UI, required if backend auth is enabled)</label>
-          <input
-            id="token"
-            type="text"
-            value={token}
-            onChange={(event) => setToken(event.target.value)}
-            placeholder="Paste Bearer token"
-          />
-        </section>
-
         <section className="messages" aria-live="polite">
           {messages.map((message, index) => (
             <article key={`${message.role}-${index}`} className={`message ${message.role}`}>

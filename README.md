@@ -13,6 +13,16 @@ Copy `.env.example` to `.env.local` (or `.env`) and set:
 - `GEMINI_API_KEY`: your Google GenAI API key (required).
 - `GEMINI_MODEL`: Gemini model name, default `gemini-2.0-flash`.
 - `AUTH_ENABLED`: set `true` to enforce Authorization header checks on `/query/sc`.
+- `AUTH_TOTP_REQUIRED`: set `true` to require TOTP as the Firebase second factor.
+- `FIREBASE_PROJECT_ID`: Firebase project ID used by the backend Admin SDK.
+
+Frontend (`frontend/.env` or `frontend/.env.local`):
+
+- `VITE_FIREBASE_API_KEY`
+- `VITE_FIREBASE_AUTH_DOMAIN`
+- `VITE_FIREBASE_PROJECT_ID`
+- `VITE_FIREBASE_APP_ID`
+- `VITE_API_BASE_URL` (optional, default `http://localhost:8080`)
 
 ## Run with Docker Compose
 
@@ -36,6 +46,11 @@ Headers:
 
 - `Content-Type: application/json`
 - `Authorization: <bearer-token>` (required when auth middleware is enabled)
+
+Notes:
+
+- The backend validates Firebase ID tokens with Firebase Admin SDK.
+- When `AUTH_TOTP_REQUIRED=true`, the token's second factor must be TOTP.
 
 Body:
 
