@@ -9,7 +9,7 @@ import (
 	"github.com/WillieBam/support_copilot/backend/internal/endpoint"
 	"github.com/WillieBam/support_copilot/backend/middlewares"
 	utilserver "github.com/WillieBam/support_copilot/backend/utils/server"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/spf13/cobra"
 )
 

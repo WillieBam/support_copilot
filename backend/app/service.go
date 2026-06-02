@@ -18,5 +18,5 @@ func newAppService(client *appClient, repository *appRepository) *appService {
 
 // Query satisfies interfaces.ISupportCopilotService.
 func (s *appService) Query(ctx context.Context, input string) (string, error) {
-	return s.client.QueryGemini(ctx, input)
+	return s.client.Query(ctx, input)
 }

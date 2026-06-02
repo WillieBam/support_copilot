@@ -27,6 +27,7 @@ type AuthPanelProps = {
   enrollTotp: () => Promise<void>
   resendVerification: () => Promise<void>
   signOut: () => Promise<void>
+  checkVerificationStatus: () => Promise<void>
 }
 
 function AuthPanel(props: AuthPanelProps) {
@@ -48,6 +49,95 @@ function AuthPanel(props: AuthPanelProps) {
   const handleEnrollTotp = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     await props.enrollTotp()
+  }
+
+  if (props.isSignedIn) {
+    return (
+      <section className="auth-box">
+        <p className="auth-title">Firebase Auth Status</p>
+        <p className="auth-status">{props.authStatus}</p>
+
+        {!props.isEmailVerified ? (
+          <div className="auth-grid auth-grid-totp">
+            <p className="auth-help">
+              Your email is not verified yet. We sent a verification email to <strong>{props.email}</strong>.
+            </p>
+            <p className="auth-help">
+              Please check your inbox and verify your email, then click "Check status" below.
+            </p>
+            <div className="auth-actions">
+              <button type="button" onClick={() => void props.checkVerificationStatus()} disabled={props.isBusy}>
+                {props.isBusy ? 'Checking...' : 'Check status'}
+              </button>
+              <button type="button" onClick={() => void props.resendVerification()} disabled={props.isBusy}>
+                Resend verification email
+              </button>
+              <button type="button" onClick={() => void props.signOut()} disabled={props.isBusy}>
+                Sign out
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {!props.hasTotpEnabled && !props.needsTotpEnrollment && (
+              <div className="auth-grid auth-grid-totp">
+                <p className="auth-help">
+                  Email verified! You must set up a Time-based One-Time Password (TOTP) to access the workspace.
+                </p>
+                <div className="auth-actions">
+                  <button type="button" onClick={() => void props.startTotpEnrollment()} disabled={props.isBusy}>
+                    Set up TOTP
+                  </button>
+                  <button type="button" onClick={() => void props.signOut()} disabled={props.isBusy}>
+                    Sign out
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {props.needsTotpEnrollment && (
+              <form className="auth-grid auth-grid-totp" onSubmit={handleEnrollTotp}>
+                <p className="auth-help">Scan this QR code in your authenticator app:</p>
+                <TotpQrCode otpauthUrl={props.enrollOtpAuthUrl} />
+                <p className="auth-help">Or copy setup URL manually:</p>
+                <input type="text" value={props.enrollOtpAuthUrl} readOnly />
+                <label htmlFor="enroll-totp">Enter code from app</label>
+                <input
+                  id="enroll-totp"
+                  type="text"
+                  inputMode="numeric"
+                  value={props.enrollCode}
+                  onChange={(event) => props.setEnrollCode(event.target.value)}
+                  placeholder="123456"
+                  required
+                />
+                <div className="auth-actions">
+                  <button type="submit" disabled={props.isBusy || !props.enrollCode.trim()}>
+                    {props.isBusy ? 'Enrolling...' : 'Complete TOTP setup'}
+                  </button>
+                  <button type="button" onClick={() => void props.signOut()} disabled={props.isBusy}>
+                    Cancel & Sign out
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {props.hasTotpEnabled && (
+              <div className="auth-grid auth-grid-totp">
+                <p className="auth-help">TOTP is enabled. Redirecting to workspace...</p>
+                <div className="auth-actions">
+                  <button type="button" onClick={() => void props.signOut()} disabled={props.isBusy}>
+                    Sign out
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {props.authError ? <p className="error">Auth Error: {props.authError}</p> : null}
+      </section>
+    )
   }
 
   return (
@@ -89,27 +179,8 @@ function AuthPanel(props: AuthPanelProps) {
           <button type="submit" disabled={props.isBusy || !props.email.trim() || !props.password}>
             {props.isBusy ? 'Working...' : 'Create account'}
           </button>
-          {props.isSignedIn && !props.isEmailVerified ? (
-            <button type="button" onClick={() => void props.resendVerification()} disabled={props.isBusy}>
-              Resend verification email
-            </button>
-          ) : null}
-          {props.canStartTotpEnrollment ? (
-            <button type="button" onClick={() => void props.startTotpEnrollment()} disabled={props.isBusy}>
-              Set up TOTP
-            </button>
-          ) : null}
-          {props.isSignedIn ? (
-            <button type="button" onClick={() => void props.signOut()} disabled={props.isBusy}>
-              Sign out
-            </button>
-          ) : null}
         </div>
       </form>
-
-      {props.isSignedIn && props.hasTotpEnabled ? (
-        <p className="auth-help">TOTP is already enabled for this account.</p>
-      ) : null}
 
       {props.needsTotpSignIn ? (
         <form className="auth-grid auth-grid-totp" onSubmit={handleVerifyTotp}>
@@ -121,30 +192,10 @@ function AuthPanel(props: AuthPanelProps) {
             value={props.totpCode}
             onChange={(event) => props.setTotpCode(event.target.value)}
             placeholder="123456"
+            required
           />
           <button type="submit" disabled={props.isBusy || !props.totpCode.trim()}>
             {props.isBusy ? 'Verifying...' : 'Verify TOTP'}
-          </button>
-        </form>
-      ) : null}
-
-      {props.needsTotpEnrollment ? (
-        <form className="auth-grid auth-grid-totp" onSubmit={handleEnrollTotp}>
-          <p className="auth-help">Scan this QR code in your authenticator app:</p>
-          <TotpQrCode otpauthUrl={props.enrollOtpAuthUrl} />
-          <p className="auth-help">Or copy setup URL manually:</p>
-          <input type="text" value={props.enrollOtpAuthUrl} readOnly />
-          <label htmlFor="enroll-totp">Enter code from app</label>
-          <input
-            id="enroll-totp"
-            type="text"
-            inputMode="numeric"
-            value={props.enrollCode}
-            onChange={(event) => props.setEnrollCode(event.target.value)}
-            placeholder="123456"
-          />
-          <button type="submit" disabled={props.isBusy || !props.enrollCode.trim()}>
-            {props.isBusy ? 'Enrolling...' : 'Complete TOTP setup'}
           </button>
         </form>
       ) : null}

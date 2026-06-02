@@ -1,110 +1,136 @@
-import { useMemo, useState } from 'react'
-import type { FormEvent } from 'react'
 import AuthPanel from './components/AuthPanel'
-import { MantineProvider } from '@mantine/core';
 import { useFirebaseTotpAuth } from './auth/useFirebaseTotpAuth'
-import './App.css'
-type Role = 'user' | 'assistant'
+import { Thread } from './components/assistant-ui/thread'
+import { AssistantRuntimeProvider } from '@assistant-ui/react'
+import { useBackendRuntime } from './chat/backendRuntime'
+import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
+import { useEffect } from 'react'
 
-type ChatMessage = {
-  role: Role
-  text: string
-}
+type AuthState = ReturnType<typeof useFirebaseTotpAuth>
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
-
-function App() {
-  const auth = useFirebaseTotpAuth()
-  const [prompt, setPrompt] = useState('')
-  const [isSending, setIsSending] = useState(false)
-  const [error, setError] = useState('')
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      role: 'assistant',
-      text: 'Hello. Ask me anything and I will respond using Gemini through your backend endpoint.',
-    },
-  ])
-
-  const endpoint = useMemo(() => `${API_BASE_URL}/query/sc`, [])
-
-  const submitPrompt = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    const input = prompt.trim()
-    if (!input || isSending) return
-
-    setError('')
-    setMessages((prev) => [...prev, { role: 'user', text: input }])
-    setPrompt('')
-    setIsSending(true)
-
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(auth.token.trim() ? { Authorization: auth.token.trim() } : {}),
-        },
-        body: JSON.stringify({ input }),
-      })
-
-      const payload = (await response.json()) as { output?: string; error?: string }
-
-      if (!response.ok) {
-        throw new Error(payload.error || 'Request failed')
-      }
-
-      setMessages((prev) => [...prev, { role: 'assistant', text: payload.output ?? '' }])
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unable to contact backend'
-      setError(message)
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          text: `I could not process that request: ${message}`,
-        },
-      ])
-    } finally {
-      setIsSending(false)
-    }
-  }
-    <AuthPanel {...auth} />
+function LoadingScreen() {
   return (
-    <div className="page-shell">
-      <main className="chat-panel">
-        <header className="chat-header">
+    <div className="login-shell">
+      <div className="login-card">
+        <div className="eyebrow-shell">
           <p className="eyebrow">Support Copilot</p>
-          <h1>Gemini Chat Console</h1>
-          <p className="header-subtitle">Connected to {endpoint}</p>
-        </header>
-        <section className="messages" aria-live="polite">
-          {messages.map((message, index) => (
-            <article key={`${message.role}-${index}`} className={`message ${message.role}`}>
-              <span className="badge">{message.role === 'user' ? 'You' : 'Gemini'}</span>
-              <p>{message.text}</p>
-            </article>
-          ))}
-        </section>
-
-        <form className="composer" onSubmit={submitPrompt}>
-          <textarea
-            value={prompt}
-            onChange={(event) => setPrompt(event.target.value)}
-            placeholder="Ask something..."
-            rows={4}
-          />
-          <button type="submit" disabled={isSending || !prompt.trim()}>
-            {isSending ? 'Sending...' : 'Send'}
-          </button>
-        </form>
-
-        {error ? <p className="error">Error: {error}</p> : null}
-      </main>
+          <h1>Loading session</h1>
+          <p className="header-subtitle">Restoring your Firebase login state.</p>
+        </div>
+      </div>
       <div className="bg-grid" aria-hidden="true">
         <div className="orb orb-a" />
         <div className="orb orb-b" />
       </div>
     </div>
+  )
+}
+
+function LoginPage({ auth }: { auth: AuthState }) {
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (auth.isAuthReady && auth.isSignedIn) {
+      if (auth.hasTotpEnabled) {
+        navigate('/chat', { replace: true })
+      }
+    }
+  }, [auth.isAuthReady, auth.isSignedIn, auth.hasTotpEnabled, navigate])
+
+  if (!auth.isAuthReady) return <LoadingScreen />
+
+  return (
+    <div className="login-shell">
+      <div className="login-card">
+        <div className="eyebrow-shell">
+          <p className="eyebrow">Support Copilot</p>
+          <h1>Sign in to continue</h1>
+          <p className="header-subtitle">
+            Use Firebase email/password and TOTP to unlock the assistant workspace.
+          </p>
+        </div>
+
+        <AuthPanel {...auth} />
+      </div>
+
+      <div className="bg-grid" aria-hidden="true">
+        <div className="orb orb-a" />
+        <div className="orb orb-b" />
+      </div>
+    </div>
+  )
+}
+
+function ChatPage({ auth, runtime, endpoint }: { auth: AuthState; runtime: ReturnType<typeof useBackendRuntime>['runtime']; endpoint: string }) {
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (auth.isAuthReady) {
+      if (!auth.isSignedIn) {
+        navigate('/login', { replace: true })
+      } else if (!auth.isEmailVerified) {
+        navigate('/login', { replace: true })
+      } else if (!auth.hasTotpEnabled) {
+        navigate('/login', { replace: true })
+      }
+    }
+  }, [auth.isAuthReady, auth.isSignedIn, auth.isEmailVerified, auth.hasTotpEnabled, navigate])
+
+  if (!auth.isAuthReady) return <LoadingScreen />
+
+  return (
+    <div className="app-shell">
+      <main className="chat-panel">
+        <header className="chat-header">
+          <div className="chat-header-copy">
+            <p className="eyebrow">assistant-ui</p>
+            <h1>Support Copilot</h1>
+            <p className="header-subtitle">
+              Chat is powered by assistant-ui and your Go backend at {endpoint}.
+            </p>
+          </div>
+
+          <div className="chat-status-block">
+            <div className="chat-status-pill">
+              <span>Signed in</span>
+              <span>TOTP enabled</span>
+            </div>
+            <button type="button" className="sign-out-link" onClick={() => void auth.signOut()} disabled={auth.isBusy}>
+              Sign out
+            </button>
+          </div>
+        </header>
+
+        <p className="chat-intro">
+          Ask a question and the assistant-ui runtime will call the backend with your Firebase bearer token.
+        </p>
+
+        <div className="chat-thread-shell">
+          <AssistantRuntimeProvider runtime={runtime}>
+            <Thread />
+          </AssistantRuntimeProvider>
+        </div>
+      </main>
+
+      <div className="bg-grid" aria-hidden="true">
+        <div className="orb orb-a" />
+        <div className="orb orb-b" />
+      </div>
+    </div>
+  )
+}
+
+function App() {
+  const auth = useFirebaseTotpAuth()
+  const { runtime, endpoint } = useBackendRuntime(auth.token)
+
+  return (
+    <Routes>
+      <Route path="/" element={<Navigate to={auth.isSignedIn ? '/chat' : '/login'} replace />} />
+      <Route path="/login" element={<LoginPage auth={auth} />} />
+      <Route path="/chat" element={<ChatPage auth={auth} runtime={runtime} endpoint={endpoint} />} />
+      <Route path="*" element={<Navigate to={auth.isSignedIn ? '/chat' : '/login'} replace />} />
+    </Routes>
   )
 }
 

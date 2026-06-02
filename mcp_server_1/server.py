@@ -1,19 +1,21 @@
 import os
 import logging
 import uuid
+import json
 from dotenv import load_dotenv
 from typing import Optional
+from urllib import error as urllib_error
+from urllib import request as urllib_request
 
 from fastmcp import FastMCP
-from google import genai
 
 load_dotenv()
 
 MCP_HOST = os.getenv("MCP_HOST")
 MCP_PORT = int(os.getenv("MCP_PORT", "9000"))
 MCP_PATH = os.getenv("MCP_PATH")
-DEFAULT_MODEL = os.getenv("GEMINI_MODEL")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
 
 mcp = FastMCP("support-copilot-mcp")
 
@@ -31,32 +33,50 @@ if not _logger.handlers:
     _logger.addHandler(file_handler)
 
 
-def _build_client() -> genai.Client:
-    if not GEMINI_API_KEY:
-        raise ValueError("GEMINI_API_KEY is required")
+def _chat_with_ollama(message: str, model: Optional[str] = None) -> str:
+    selected_model = model or OLLAMA_MODEL
+    if not selected_model:
+        raise ValueError("OLLAMA_MODEL is required")
 
-    return genai.Client(api_key=GEMINI_API_KEY)
+    payload = json.dumps(
+        {
+            "model": selected_model,
+            "stream": False,
+            "messages": [{"role": "user", "content": message}],
+        }
+    ).encode("utf-8")
+
+    req = urllib_request.Request(
+        f"{OLLAMA_BASE_URL}/api/chat",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    try:
+        with urllib_request.urlopen(req, timeout=30) as response:
+            response_payload = json.loads(response.read().decode("utf-8"))
+    except urllib_error.HTTPError as exc:
+        raise ValueError(f"Ollama API error ({exc.code}): {exc.read().decode('utf-8')}") from exc
+
+    content = response_payload.get("message", {}).get("content", "").strip()
+    if not content:
+        content = response_payload.get("response", "").strip()
+
+    if not content:
+        raise ValueError("Ollama returned an empty response")
+
+    return content
 
 
-@mcp.tool(description="Send a user message to Gemini and return the model response")
-def chat_with_gemini(message: str, model: Optional[str] = None) -> str:
+@mcp.tool(description="Send a user message to Ollama and return the model response")
+def chat_with_ollama(message: str, model: Optional[str] = None) -> str:
     if not message or not message.strip():
         raise ValueError("message is required")
 
-    client = _build_client()
-    selected_model = model or DEFAULT_MODEL
-
-    response = client.models.generate_content(
-        model=selected_model,
-        contents=message,
-    )
-
-    _logger.info("tool=chat_with_gemini model=%s input_chars=%d", selected_model, len(message))
-
-    if not response.text:
-        raise ValueError("Gemini returned an empty response")
-
-    return response.text
+    response_text = _chat_with_ollama(message, model)
+    _logger.info("tool=chat_with_ollama model=%s input_chars=%d", model or OLLAMA_MODEL, len(message))
+    return response_text
 
 
 @mcp.tool(description="Add two numbers and return the sum")

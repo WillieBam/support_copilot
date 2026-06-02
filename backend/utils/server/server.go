@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 type Server struct {
@@ -13,7 +13,6 @@ type Server struct {
 
 func New(config IServer) *Server {
 	e := echo.New()
-	e.HideBanner = true
 	return &Server{
 		Echo:   e,
 		config: config,
@@ -25,12 +24,11 @@ func New(config IServer) *Server {
 func (s *Server) Start(ctx context.Context, setup func(*echo.Echo)) error {
 	setup(s.Echo)
 
-	go func() {
-		<-ctx.Done()
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), s.config.GetShutdownTimeOutDuration())
-		defer cancel()
-		s.Echo.Shutdown(shutdownCtx) //nolint:errcheck
-	}()
+	sc := echo.StartConfig{
+		Address:       ":" + s.config.Port(),
+		HideBanner:    true,
+		GracefulTimeout: s.config.GetShutdownTimeOutDuration(),
+	}
 
-	return s.Echo.Start(":" + s.config.Port())
+	return sc.Start(ctx, s.Echo)
 }

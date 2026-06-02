@@ -1,19 +1,21 @@
 include .env
 export $(shell sed 's/=.*//' .env)
 
+.PHONY: up down dev-start dev mcp-one
+
 up:
-	docker compose up --build
+	podman compose up --build
 
 down:
-	docker compose down
+	podman compose down
 
 dev-start:
-	docker run --name fyp-postgres \
+	podman run --name support_copilot_postgres \
 		-e POSTGRES_PASSWORD=$(DB_PASSWORD) \
 		-e POSTGRES_USER=$(DB_USER) \
 		-e POSTGRES_DB=$(DB_NAME) \
 		-p $(DB_PORT):5432 \
-		-d postgres:15
+		-d docker.io/library/postgres:15
 
 dev:
 	go run -race backend/main.go server

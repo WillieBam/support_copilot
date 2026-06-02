@@ -4,13 +4,13 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm ci
-
+RUN npm install
+RUN npm ls @fontsource-variable/geist
+RUN ls -la node_modules/@fontsource-variable
 COPY . .
 RUN npm run build
 
-# ---- runtime stage (serve with nginx) ----
-FROM nginx:alpine
+FROM docker.io/library/nginx:alpine
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 

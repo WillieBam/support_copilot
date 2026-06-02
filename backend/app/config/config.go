@@ -40,8 +40,7 @@ type Config struct {
 		ProjectID string `mapstructure:"project_id"`
 	}
 
-	Gemini struct {
-		APIKey  string `mapstructure:"api_key"`
+	Ollama struct {
 		Model   string
 		BaseURL string `mapstructure:"base_url"`
 	}
@@ -74,9 +73,8 @@ func newConfig() IConfig {
 	cfg.SetDefault("auth.enabled", false)
 	cfg.SetDefault("auth.totp_required", false)
 	cfg.SetDefault("firebase.project_id", "")
-	cfg.SetDefault("gemini.api_key", "")
-	cfg.SetDefault("gemini.model", "gemini-2.5-flash")
-	cfg.SetDefault("gemini.base_url", "https://generativelanguage.googleapis.com")
+	cfg.SetDefault("ollama.model", "llama3.2")
+	cfg.SetDefault("ollama.base_url", "http://localhost:11434")
 	cfg.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	cfg.AutomaticEnv()
 	cfg.SetConfigName("config")

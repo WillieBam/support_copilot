@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { onIdTokenChanged, type MultiFactorInfo, type MultiFactorResolver, type TotpSecret } from 'firebase/auth'
 import { firebaseAuth } from '../firebase'
 import {
@@ -26,11 +26,39 @@ export function useFirebaseTotpAuth() {
   const [enrollOtpAuthUrl, setEnrollOtpAuthUrl] = useState('')
   const [hasTotpEnabled, setHasTotpEnabled] = useState(false)
   const [isEmailVerified, setIsEmailVerified] = useState(false)
+  const [isAuthReady, setIsAuthReady] = useState(false)
   const [authStatus, setAuthStatus] = useState('Not signed in')
   const [authError, setAuthError] = useState('')
 
+  const checkVerificationStatus = async () => {
+    const user = firebaseAuth.currentUser
+    if (!user) return
+
+    setAuthError('')
+    setIsBusy(true)
+    try {
+      await user.reload()
+      const refreshedUser = firebaseAuth.currentUser
+      if (refreshedUser) {
+        setIsEmailVerified(refreshedUser.emailVerified)
+        setHasTotpEnabled(hasTotpEnrollment(refreshedUser))
+        if (refreshedUser.emailVerified) {
+          setAuthStatus('Email verified. You must set up TOTP to access the workspace.')
+        } else {
+          setAuthStatus('Email is still unverified. Please check your inbox.')
+        }
+      }
+    } catch (error) {
+      setAuthError(toErrorMessage(error, 'Email verification check failed'))
+    } finally {
+      setIsBusy(false)
+    }
+  }
+
   useEffect(() => {
     const unsubscribe = onIdTokenChanged(firebaseAuth, async (user) => {
+      setIsAuthReady(true)
+
       if (!user) {
         setToken('')
         setHasTotpEnabled(false)
@@ -49,7 +77,7 @@ export function useFirebaseTotpAuth() {
     return () => unsubscribe()
   }, [])
 
-  const isSignedIn = useMemo(() => token !== '', [token])
+  const isSignedIn = token !== ''
 
   const signIn = async () => {
     if (isBusy) return
@@ -112,11 +140,10 @@ export function useFirebaseTotpAuth() {
     try {
       const user = await createAccount(firebaseAuth, email.trim(), password)
       await sendVerificationEmail(user)
-      await signOutCurrentUser(firebaseAuth)
       setEnrollSecret(null)
       setEnrollOtpAuthUrl('')
       setEnrollCode('')
-      setAuthStatus('Account created. Verification email sent. Verify your email, then sign in and set up TOTP.')
+      setAuthStatus('Account created. Verification email sent. Please check your inbox and verify your email, then click "Check status".')
       setTotpResolver(null)
       setTotpHint(null)
       setTotpCode('')
@@ -254,6 +281,7 @@ export function useFirebaseTotpAuth() {
     enrollOtpAuthUrl,
     hasTotpEnabled,
     isEmailVerified,
+    isAuthReady,
     needsTotpSignIn: totpResolver !== null && totpHint !== null,
     needsTotpEnrollment: enrollSecret !== null,
     canStartTotpEnrollment: isSignedIn && isEmailVerified && !hasTotpEnabled && enrollSecret === null,
@@ -268,5 +296,6 @@ export function useFirebaseTotpAuth() {
     enrollTotp,
     resendVerification,
     signOut,
+    checkVerificationStatus,
   }
 }

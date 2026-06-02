@@ -1,8 +1,10 @@
 package middlewares
 
 import (
-	"github.com/labstack/echo/v4"
-	echoMiddleware "github.com/labstack/echo/v4/middleware"
+	"net/http"
+
+	"github.com/labstack/echo/v5"
+	echoMiddleware "github.com/labstack/echo/v5/middleware"
 )
 
 // CORSMiddleware returns an Echo middleware that applies permissive CORS headers.
@@ -10,7 +12,7 @@ import (
 func CORSMiddleware() echo.MiddlewareFunc {
 	return echoMiddleware.CORSWithConfig(echoMiddleware.CORSConfig{
 		AllowOrigins: []string{"*"},
-		AllowMethods: []string{echo.GET, echo.POST, echo.PUT, echo.DELETE, echo.OPTIONS},
+		AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodOptions},
 		AllowHeaders: []string{echo.HeaderContentType, echo.HeaderAuthorization},
 	})
 }

@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/WillieBam/support_copilot/backend/internal/interfaces"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 type Handler struct {
@@ -29,7 +29,7 @@ type queryResponse struct {
 }
 
 // Query handles POST /query/sc
-func (h *Handler) Query(c echo.Context) error {
+func (h *Handler) Query(c *echo.Context) error {
 	var req queryRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
@@ -44,13 +44,13 @@ func (h *Handler) Query(c echo.Context) error {
 		errMsg := err.Error()
 		log.Printf("query failed: %v", err)
 
-		if strings.Contains(errMsg, "gemini API error (429)") || strings.Contains(errMsg, "RESOURCE_EXHAUSTED") {
+		if strings.Contains(errMsg, "API error (429)") || strings.Contains(errMsg, "RESOURCE_EXHAUSTED") {
 			if retryAfter := extractRetryAfterSeconds(errMsg); retryAfter > 0 {
 				c.Response().Header().Set(echo.HeaderRetryAfter, strconv.Itoa(retryAfter))
 			}
 
 			return c.JSON(http.StatusTooManyRequests, map[string]string{
-				"error": "Gemini quota exceeded. Please retry shortly, or check your Gemini plan and quota limits.",
+				"error": "The model provider is rate limited. Please retry shortly.",
 			})
 		}
 

@@ -2,16 +2,16 @@
 
 This project now includes:
 
-- A Go backend API (`POST /query/sc`) that returns Gemini responses.
+- A Go backend API (`POST /query/sc`) that returns Ollama responses.
 - A React chat frontend in `frontend/`.
-- A Python FastMCP server in `mcp_server/` exposing a Gemini chat tool.
+- A Python FastMCP server in `mcp_server/` exposing an Ollama chat tool.
 
 ## Environment Variables
 
 Copy `.env.example` to `.env.local` (or `.env`) and set:
 
-- `GEMINI_API_KEY`: your Google GenAI API key (required).
-- `GEMINI_MODEL`: Gemini model name, default `gemini-2.0-flash`.
+- `OLLAMA_BASE_URL`: Ollama server URL, default `http://localhost:11434`.
+- `OLLAMA_MODEL`: Ollama model name, default `llama3.1`.
 - `AUTH_ENABLED`: set `true` to enforce Authorization header checks on `/query/sc`.
 - `AUTH_TOTP_REQUIRED`: set `true` to require TOTP as the Firebase second factor.
 - `FIREBASE_PROJECT_ID`: Firebase project ID used by the backend Admin SDK.
@@ -64,7 +64,7 @@ Response:
 
 ```json
 {
-	"output": "...Gemini response..."
+	"output": "...assistant response..."
 }
 ```
 
@@ -72,6 +72,6 @@ Response:
 
 The FastMCP server defines a tool:
 
-- `chat_with_gemini(message: string, model?: string) -> string`
+- `chat_with_ollama(message: string, model?: string) -> string`
 
 You can connect using any MCP client that supports streamable HTTP transport.

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -17,72 +16,72 @@ import (
 
 type appClient struct {
 	httpClient  *http.Client
-	geminiAPI   string
-	geminiBase  string
-	geminiModel string
+	ollamaBase  string
+	ollamaModel string
 }
 
 func newAppClient() *appClient {
 	cfg := config.Get()
-	baseURL := strings.TrimRight(cfg.Gemini.BaseURL, "/")
-	if baseURL == "" {
-		baseURL = "https://generativelanguage.googleapis.com"
+
+	ollamaBaseURL := strings.TrimRight(cfg.Ollama.BaseURL, "/")
+	if ollamaBaseURL == "" {
+		ollamaBaseURL = "http://localhost:11434"
+	}
+
+	ollamaModel := strings.TrimSpace(cfg.Ollama.Model)
+	if ollamaModel == "" {
+		ollamaModel = "llama3.1"
 	}
 
 	return &appClient{
 		httpClient:  &http.Client{Timeout: 30 * time.Second},
-		geminiAPI:   cfg.Gemini.APIKey,
-		geminiBase:  baseURL,
-		geminiModel: cfg.Gemini.Model,
+		ollamaBase:  ollamaBaseURL,
+		ollamaModel: ollamaModel,
 	}
 }
 
-type geminiGenerateContentRequest struct {
-	Contents []struct {
-		Parts []struct {
-			Text string `json:"text"`
-		} `json:"parts"`
-	} `json:"contents"`
+type ollamaChatRequest struct {
+	Model    string `json:"model"`
+	Stream   bool   `json:"stream"`
+	Messages []struct {
+		Role    string `json:"role"`
+		Content string `json:"content"`
+	} `json:"messages"`
 }
 
-type geminiGenerateContentResponse struct {
-	Candidates []struct {
-		Content struct {
-			Parts []struct {
-				Text string `json:"text"`
-			} `json:"parts"`
-		} `json:"content"`
-	} `json:"candidates"`
+type ollamaChatResponse struct {
+	Message struct {
+		Role    string `json:"role"`
+		Content string `json:"content"`
+	} `json:"message"`
+	Response string `json:"response"`
 }
 
-func (c *appClient) QueryGemini(ctx context.Context, prompt string) (string, error) {
-	if c.geminiAPI == "" {
-		return "", errors.New("missing GEMINI_API_KEY")
+func (c *appClient) Query(ctx context.Context, prompt string) (string, error) {
+	return c.queryOllama(ctx, prompt)
+}
+
+func (c *appClient) queryOllama(ctx context.Context, prompt string) (string, error) {
+	if c.ollamaBase == "" {
+		return "", errors.New("missing OLLAMA_BASE_URL")
 	}
 
-	if c.geminiBase == "" {
-		return "", errors.New("missing GEMINI_BASE_URL")
+	if !strings.HasPrefix(c.ollamaBase, "http://") && !strings.HasPrefix(c.ollamaBase, "https://") {
+		return "", fmt.Errorf("invalid OLLAMA_BASE_URL: %s", c.ollamaBase)
 	}
 
-	if !strings.HasPrefix(c.geminiBase, "http://") && !strings.HasPrefix(c.geminiBase, "https://") {
-		return "", fmt.Errorf("invalid GEMINI_BASE_URL: %s", c.geminiBase)
+	if c.ollamaModel == "" {
+		return "", errors.New("missing OLLAMA_MODEL")
 	}
 
-	if c.geminiModel == "" {
-		c.geminiModel = "gemini-2.0-flash"
-	}
-
-	var body geminiGenerateContentRequest
-	body.Contents = []struct {
-		Parts []struct {
-			Text string `json:"text"`
-		} `json:"parts"`
+	var body ollamaChatRequest
+	body.Model = c.ollamaModel
+	body.Stream = false
+	body.Messages = []struct {
+		Role    string `json:"role"`
+		Content string `json:"content"`
 	}{
-		{
-			Parts: []struct {
-				Text string `json:"text"`
-			}{{Text: prompt}},
-		},
+		{Role: "user", Content: prompt},
 	}
 
 	payload, err := json.Marshal(body)
@@ -90,7 +89,7 @@ func (c *appClient) QueryGemini(ctx context.Context, prompt string) (string, err
 		return "", err
 	}
 
-	u := fmt.Sprintf("%s/v1beta/models/%s:generateContent?key=%s", c.geminiBase, c.geminiModel, url.QueryEscape(c.geminiAPI))
+	u := fmt.Sprintf("%s/api/chat", c.ollamaBase)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(payload))
 	if err != nil {
 		return "", err
@@ -109,17 +108,21 @@ func (c *appClient) QueryGemini(ctx context.Context, prompt string) (string, err
 	}
 
 	if resp.StatusCode >= http.StatusBadRequest {
-		return "", fmt.Errorf("gemini API error (%d): %s", resp.StatusCode, string(respBody))
+		return "", fmt.Errorf("ollama API error (%d): %s", resp.StatusCode, string(respBody))
 	}
 
-	var geminiResp geminiGenerateContentResponse
-	if err := json.Unmarshal(respBody, &geminiResp); err != nil {
+	var ollamaResp ollamaChatResponse
+	if err := json.Unmarshal(respBody, &ollamaResp); err != nil {
 		return "", err
 	}
 
-	if len(geminiResp.Candidates) == 0 || len(geminiResp.Candidates[0].Content.Parts) == 0 {
-		return "", errors.New("gemini returned no content")
+	if text := strings.TrimSpace(ollamaResp.Message.Content); text != "" {
+		return text, nil
 	}
 
-	return geminiResp.Candidates[0].Content.Parts[0].Text, nil
+	if text := strings.TrimSpace(ollamaResp.Response); text != "" {
+		return text, nil
+	}
+
+	return "", errors.New("ollama returned no content")
 }
