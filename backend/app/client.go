@@ -30,7 +30,7 @@ func newAppClient() *appClient {
 
 	ollamaModel := strings.TrimSpace(cfg.Ollama.Model)
 	if ollamaModel == "" {
-		ollamaModel = "llama3.1"
+		ollamaModel = "llama3.2"
 	}
 
 	return &appClient{
