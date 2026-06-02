@@ -16,6 +16,7 @@ var rootCmd = &cobra.Command{
 	Short: "Support copilot",
 	Long:  "Support Copilot",
 }
+
 var migrateCmd = &cobra.Command{
 	Use:   "migrate",
 	Short: "Run database auto-migration and seeding",
@@ -56,5 +57,4 @@ func Execute() {
 func init() {
 	rootCmd.AddCommand(migrateCmd)
 	rootCmd.Flags().BoolP("toggle", "t", false, "yeehaa")
-
 }

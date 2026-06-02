@@ -1,4 +1,4 @@
-package seeds
+package db
 
 import (
 	"log"
@@ -14,7 +14,6 @@ func InitDatabase(db *gorm.DB) {
 		log.Fatalf("Failed to create UUID extension: %v", err)
 	}
 
-	log.Println("Running database migrations...")
 	err := db.AutoMigrate(&models.User{})
 	if err != nil {
 		log.Fatalf("AutoMigrate failed: %v", err)
@@ -25,23 +24,24 @@ func InitDatabase(db *gorm.DB) {
 }
 
 func seedUsers(db *gorm.DB) {
-	users := []models.User{
+	defaultUsers := []models.User{
 		{
 			ID:          uuid.New(),
-			FirebaseUID: "fb_mock_admin_999",
+			FirebaseUID: "fb_superadmin_111",
 			Email:       "superadmin@company.com",
-			DisplayName: "System Admin",
+			DisplayName: "System Boss",
 			Scope:       "superadmin",
 		},
 	}
+
 	err := db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "email"}},
 		DoNothing: true,
-	}).Create(&users).Error
+	}).Create(&defaultUsers).Error
 
 	if err != nil {
-		log.Fatalf("Failed to seed database: %v", err)
+		log.Printf("Warning: Seeding failed: %v", err)
+	} else {
+		log.Println("Database seeding done!")
 	}
-
-	log.Println(("Database successfully seeded"))
 }
