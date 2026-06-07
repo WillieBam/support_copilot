@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"context"
-	"log"
+	"log/slog"
 
 	"github.com/WillieBam/support_copilot/backend/app"
 	"github.com/WillieBam/support_copilot/backend/app/config"
@@ -36,12 +36,15 @@ func supportCopilotExec(cmd *cobra.Command, args []string) {
 		e.Use(middlewares.RecoveryMiddleware())
 		e.Use(middlewares.CORSMiddleware())
 
-		g := e.Group("/query/sc")
+		// authentication login endpoint
+		e.POST("/login", h.FirebaseLogin)
+
+		g := e.Group("/query/chat")
 		if config.Get().Auth.Enabled {
 			g.Use(echo.WrapMiddleware(middlewares.AuthMiddleware))
 		}
 		g.POST("", h.Query)
 	}); err != nil {
-		log.Printf("server stopped: %v", err)
+		slog.Error("server stopped", "err", err)
 	}
 }

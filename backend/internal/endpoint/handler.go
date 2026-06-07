@@ -1,23 +1,51 @@
 package endpoint
 
 import (
-	"log"
+	"log/slog"
 	"math"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
 
-	"github.com/WillieBam/support_copilot/backend/internal/interfaces"
+	"github.com/WillieBam/support_copilot/backend/app"
+	"github.com/WillieBam/support_copilot/backend/types"
 	"github.com/labstack/echo/v5"
 )
 
 type Handler struct {
-	service interfaces.ISupportCopilotService
+	apps *app.AppService
 }
 
-func NewHandler(service interfaces.ISupportCopilotService) *Handler {
-	return &Handler{service: service}
+func NewHandler(a *app.AppService) *Handler {
+	return &Handler{apps: a}
+}
+
+func (h *Handler) FirebaseLogin(c *echo.Context) error {
+	var req types.LoginRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+	}
+
+	if req.IDToken == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "firebase id_token is required"})
+	}
+
+	// Verify credentials and register/login user using the AuthService layer
+	user, err := h.apps.AuthService.LoginOrRegister(c.Request().Context(), req.IDToken)
+	if err != nil {
+		// Handle verification failure (expired token, revoked token, invalid credentials)
+		return c.JSON(http.StatusUnauthorized, map[string]string{
+			"error": "authentication failed: " + err.Error(),
+		})
+	}
+
+	return c.JSON(http.StatusOK, types.LoginResponse{
+		Message: "Authentication successful",
+		UID:     user.FirebaseUID,
+		Email:   user.Email,
+		Name:    user.DisplayName,
+	})
 }
 
 type queryRequest struct {
@@ -28,7 +56,7 @@ type queryResponse struct {
 	Output string `json:"output"`
 }
 
-// Query handles POST /query/sc
+// Query handles POST /query/chat
 func (h *Handler) Query(c *echo.Context) error {
 	var req queryRequest
 	if err := c.Bind(&req); err != nil {
@@ -39,10 +67,10 @@ func (h *Handler) Query(c *echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "input is required"})
 	}
 
-	result, err := h.service.Query(c.Request().Context(), req.Input)
+	result, err := h.apps.Query(c.Request().Context(), req.Input)
 	if err != nil {
 		errMsg := err.Error()
-		log.Printf("query failed: %v", err)
+		slog.Error("query failed", "err", err)
 
 		if strings.Contains(errMsg, "API error (429)") || strings.Contains(errMsg, "RESOURCE_EXHAUSTED") {
 			if retryAfter := extractRetryAfterSeconds(errMsg); retryAfter > 0 {

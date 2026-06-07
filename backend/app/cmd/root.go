@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/WillieBam/support_copilot/backend/app/config"
 	seeds "github.com/WillieBam/support_copilot/db"
 	"github.com/spf13/cobra"
 	"gorm.io/driver/postgres"
@@ -22,21 +23,14 @@ var migrateCmd = &cobra.Command{
 	Short: "Run database auto-migration and seeding",
 	Long:  "Run database auto-migration and seeding",
 	Run: func(cmd *cobra.Command, args []string) {
-		dbHost := os.Getenv("DB_HOST")
-		dbUser := os.Getenv("DB_USER")
-		dbPass := os.Getenv("DB_PASSWORD")
-		dbName := os.Getenv("DB_NAME")
-		dbPort := os.Getenv("DB_PORT")
-
-		if dbHost == "" {
-			dbHost = "localhost"
-		}
-		if dbPort == "" {
-			dbPort = "5432"
-		}
-
-		dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
-			dbHost, dbUser, dbPass, dbName, dbPort)
+		cfg := config.Get()
+		dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=disable",
+			cfg.Database.Host,
+			cfg.Database.User,
+			cfg.Database.Password,
+			cfg.Database.Name,
+			cfg.Database.Port,
+		)
 
 		gormDB, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 		if err != nil {

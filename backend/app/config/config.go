@@ -2,6 +2,7 @@ package config
 
 import (
 	"log"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -37,7 +38,8 @@ type Config struct {
 	}
 
 	Firebase struct {
-		ProjectID string `mapstructure:"project_id"`
+		ProjectID          string `mapstructure:"project_id"`
+		ServiceAccountPath string `mapstructure:"service_account_path"`
 	}
 
 	Ollama struct {
@@ -73,6 +75,7 @@ func newConfig() IConfig {
 	cfg.SetDefault("auth.enabled", false)
 	cfg.SetDefault("auth.totp_required", false)
 	cfg.SetDefault("firebase.project_id", "")
+	cfg.SetDefault("firebase.service_account_path", "backend/app/config/serviceAccountKey.json")
 	cfg.SetDefault("ollama.model", "llama3.2")
 	cfg.SetDefault("ollama.base_url", "http://localhost:11434")
 	cfg.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
@@ -83,7 +86,7 @@ func newConfig() IConfig {
 	cfg.AddConfigPath("./config")
 
 	if err := cfg.ReadInConfig(); err != nil {
-		log.Printf("Failed to read config: %v", err)
+		slog.Error("Failed to read config", "err", err)
 	}
 
 	return cfg
