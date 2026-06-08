@@ -1,7 +1,7 @@
 import type React from 'react'
 import { Link } from 'react-router-dom'
-import { useFirebaseTotpAuth } from './useFirebaseTotpAuth'
-import { useRegisterState } from './useRegisterState'
+import { useFirebaseTotpAuth } from '../service/auth/useFirebaseTotpAuth'
+import { useRegisterState } from '../service/auth/useRegisterState'
 
 type RegisterPageProps = {
   auth: ReturnType<typeof useFirebaseTotpAuth>

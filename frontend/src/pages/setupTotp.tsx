@@ -1,6 +1,6 @@
 import type React from 'react'
-import { useFirebaseTotpAuth } from './useFirebaseTotpAuth'
-import { useSetupTotpState } from './useSetupTotpState'
+import { useFirebaseTotpAuth } from '../service/auth/useFirebaseTotpAuth'
+import { useSetupTotpState } from '../service/auth/useSetupTotpState'
 import TotpQrCode from '../components/TotpQrCode'
 
 type SetupTotpProps = {

@@ -1,8 +1,8 @@
 import type React from 'react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useFirebaseTotpAuth } from './useFirebaseTotpAuth'
-import { useTotpPageState } from './useTotpPageState'
+import { useFirebaseTotpAuth } from '../service/auth/useFirebaseTotpAuth'
+import { useTotpPageState } from '../service/auth/useTotpPageState'
 
 type TotpPageProps = {
   auth: ReturnType<typeof useFirebaseTotpAuth>

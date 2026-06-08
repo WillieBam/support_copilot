@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { useFirebaseTotpAuth } from '../auth/useFirebaseTotpAuth'
+import { useFirebaseTotpAuth } from '../service/auth/useFirebaseTotpAuth'
 
 type AuthState = ReturnType<typeof useFirebaseTotpAuth>
 
@@ -30,7 +30,7 @@ export function useAppRouter(auth: AuthState) {
         }
       } else if (!auth.hasTotpEnabled) {
         if (path !== '/setup-totp') {
-          navigate('/setup-totp', { replace: true })
+          navigate('/login', { replace: true })
         }
       } else {
         if (

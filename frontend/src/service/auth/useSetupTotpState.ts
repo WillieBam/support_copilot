@@ -5,10 +5,17 @@ export const useSetupTotpState = (auth: ReturnType<typeof useFirebaseTotpAuth>) 
   const [codeError, setCodeError] = useState('')
 
   useEffect(() => {
+    let isMounted = true;
+
     if (auth.isSignedIn && auth.isEmailVerified && !auth.hasTotpEnabled && !auth.needsTotpEnrollment) {
-      auth.startTotpEnrollment().catch(console.error)
+      auth.startTotpEnrollment().catch((error) => {
+        if (isMounted) console.error(error);
+      });
     }
-  }, [auth.isSignedIn, auth.isEmailVerified, auth.hasTotpEnabled, auth.needsTotpEnrollment, auth.startTotpEnrollment])
+    return () => {
+      isMounted = false; // update isMounted to false
+    };
+  }, [auth.isSignedIn, auth.isEmailVerified, auth.hasTotpEnabled, auth.needsTotpEnrollment, auth.startTotpEnrollment]);
 
   const handleCodeChange = (val: string) => {
     auth.setEnrollCode(val)

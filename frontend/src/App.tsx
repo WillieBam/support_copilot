@@ -1,12 +1,12 @@
-import { useFirebaseTotpAuth } from './auth/useFirebaseTotpAuth'
+import { useFirebaseTotpAuth } from './service/auth/useFirebaseTotpAuth'
 import { Thread } from './components/assistant-ui/thread'
 import { AssistantRuntimeProvider } from '@assistant-ui/react'
-import { useBackendRuntime } from './chat/backendRuntime'
+import { useBackendRuntime } from './service/chat/backendRuntime'
 import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
-import { LoginPage } from './auth/loginPage'
-import { RegisterPage } from './auth/registerPage'
-import { SetupTotp } from './auth/setupTotp'
-import { TotpPage } from './auth/totpPage'
+import { LoginPage } from './pages/loginPage'
+import { RegisterPage } from './pages/registerPage'
+import { SetupTotp } from './pages/setupTotp'
+import { TotpPage } from './pages/totpPage'
 import { useAppRouter } from './hooks/useAppRouter'
 import { useWorkspaceState } from './hooks/useWorkspaceState'
 import { Brain, FileText, Users, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
@@ -126,7 +126,7 @@ function ChatWorkspace({ auth, runtime }: { auth: AuthState; runtime: ReturnType
 
 function App() {
   const auth = useFirebaseTotpAuth()
-  const { runtime } = useBackendRuntime(auth.token)
+  const { runtime } = useBackendRuntime()
   
   // App routing logic has been decoupled into this hook
   useAppRouter(auth)

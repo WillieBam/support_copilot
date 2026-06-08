@@ -14,6 +14,8 @@ import {
   type TotpSecret,
   type User,
 } from 'firebase/auth'
+import { data } from 'react-router-dom';
+import apiClient from '../apiClient';
 
 export type SignInResult =
   | { type: 'signed-in' }
@@ -88,3 +90,18 @@ export function toErrorMessage(error: unknown, fallback: string): string {
       return error instanceof Error ? error.message : fallback
   }
 }
+
+export async function exchangeToken (user: User): Promise<void>{
+  try {
+    const firebaseToken = await user.getIdToken(true);
+    
+    await apiClient.post('/auth/exchange', {      
+      token: firebaseToken
+    });
+
+  }catch(error){
+    console.error("Tokene exchange failed", error)
+    throw error;
+  }
+}
+

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { onIdTokenChanged, type MultiFactorInfo, type MultiFactorResolver, type TotpSecret } from 'firebase/auth'
-import { firebaseAuth } from '../firebase'
+import { firebaseAuth } from '../../firebase'
 import {
   beginTotpEnrollment,
   confirmTotpEnrollment,
@@ -15,6 +15,7 @@ import {
 
 export function useFirebaseTotpAuth() {
   const [token, setToken] = useState('')
+  const [rawToken, setRawToken] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [totpCode, setTotpCode] = useState('')
@@ -61,6 +62,7 @@ export function useFirebaseTotpAuth() {
 
       if (!user) {
         setToken('')
+        setRawToken('') // Clear raw token
         setHasTotpEnabled(false)
         setIsEmailVerified(false)
         setAuthStatus('Not signed in')
@@ -68,7 +70,8 @@ export function useFirebaseTotpAuth() {
       }
 
       const idToken = await user.getIdToken()
-      setToken(`Bearer ${idToken}`)
+      setRawToken(idToken) // Save clean JWT token for HTTP payloads
+      setToken(`Bearer ${idToken}`) // Save bearer format for request headers
       setHasTotpEnabled(hasTotpEnrollment(user))
       setIsEmailVerified(user.emailVerified)
       setAuthStatus(`Signed in as ${user.email ?? user.uid}`)
@@ -270,6 +273,7 @@ export function useFirebaseTotpAuth() {
 
   return {
     token,
+    rawToken,
     email,
     password,
     setEmail,
