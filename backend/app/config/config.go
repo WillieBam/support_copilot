@@ -34,7 +34,8 @@ type Config struct {
 
 	Auth struct {
 		Enabled      bool
-		TOTPRequired bool `mapstructure:"totp_required"`
+		TOTPRequired bool   `mapstructure:"totp_required"`
+		JWTSecret    string `mapstructure:"jwt_secret"`
 	}
 
 	Firebase struct {
@@ -70,10 +71,11 @@ func newConfig() IConfig {
 	cfg.SetDefault("database.host", "localhost")
 	cfg.SetDefault("database.port", 5432)
 	cfg.SetDefault("database.user", "postgres")
-	cfg.SetDefault("database.password", "password")
-	cfg.SetDefault("database.name", "support_copilot")
+	cfg.SetDefault("database.password", "supportcopilot")
+	cfg.SetDefault("database.name", "copilot")
 	cfg.SetDefault("auth.enabled", false)
 	cfg.SetDefault("auth.totp_required", false)
+	cfg.SetDefault("auth.jwt_secret", "local_development_fallback_secret_key_32_bytes_long")
 	cfg.SetDefault("firebase.project_id", "")
 	cfg.SetDefault("firebase.service_account_path", "backend/app/config/serviceAccountKey.json")
 	cfg.SetDefault("ollama.model", "llama3.2")
