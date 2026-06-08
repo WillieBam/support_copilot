@@ -72,7 +72,7 @@ func (h *Handler) Query(c *echo.Context) error {
 		})
 	}
 
-	log.Printf("[DEBUG] Successfully authenticated user UID: %s processing query stream.", appUID)
+	log.Printf("[LOG] Successfully authenticated user UID: %s processing query stream.", appUID)
 	var req queryRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
