@@ -3,10 +3,10 @@ package interfaces
 import (
 	"context"
 
-	"github.com/WillieBam/support_copilot/backend/types/models"
+	"github.com/WillieBam/support_copilot/backend/types"
 )
 
 type IAuthService interface {
-	IsUserExists(ctx context.Context, idToken string) bool
-	LoginOrRegister(ctx context.Context, idToken string) (*models.User, error)
+	ExchangeToken(ctx context.Context, firebaseToken string) (string, error)
+	ParseAndValidateAuthToken(ctx context.Context, tokenString string) (*types.Claims, error)
 }

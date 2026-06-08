@@ -7,9 +7,11 @@ import (
 
 	"log/slog"
 
-	"firebase.google.com/go/v4/auth"
+	"github.com/WillieBam/support_copilot/backend/app/config"
 	"github.com/WillieBam/support_copilot/backend/internal/interfaces"
+	"github.com/WillieBam/support_copilot/backend/types"
 	"github.com/WillieBam/support_copilot/backend/types/models"
+	jwt "github.com/golang-jwt/jwt/v5"
 	"gorm.io/gorm"
 )
 
@@ -30,87 +32,130 @@ func New(asp AuthServiceParam) interfaces.IAuthService {
 	}
 }
 
-// IsUserExists is to verify the user whether is in database.
-// If user exists, return true, else false.
-func (s *authService) IsUserExists(ctx context.Context, idToken string) bool {
-	var uid *auth.Token
-	var err error
-	if uid, err = s.firebaseRepo.VerifyIDToken(ctx, idToken); err != nil {
-		slog.Error("unable to verify user", "err", err)
-		return false
-	}
-
-	if _, userNotFoundErr := s.userRepo.GetUserByFirebaseUID(ctx, uid.UID); userNotFoundErr != nil {
-		slog.Error("unable to find user in database", "err", userNotFoundErr)
-		return false
-	}
-	return true
-}
-
-// LoginOrRegister verifies the Firebase token and syncs the user into our PostgreSQL DB.
-func (s *authService) LoginOrRegister(ctx context.Context, idToken string) (*models.User, error) {
-	// 1. Verify token with Firebase Repository
-	token, err := s.firebaseRepo.VerifyIDToken(ctx, idToken)
+func (s *authService) ExchangeToken(ctx context.Context, firebaseToken string) (string, error) {
+	// verify the incoming token with firebase
+	verifiedToken, err := s.firebaseRepo.VerifyIDToken(ctx, firebaseToken)
 	if err != nil {
-		slog.Error("firebase token verification failed", "err", err)
-		return nil, errors.New("invalid credentials")
+		slog.ErrorContext(ctx, "failed to verify firebase id token", "error", err)
+		return "", errors.New("invalid or expired firebase token")
 	}
 
-	user, err := s.userRepo.GetUserByFirebaseUID(ctx, token.UID)
+	cfg := config.Get()
 
+	// enforce MFA if enabled in system config
+	isMfaVerified := s.validateMFAClaims(verifiedToken.Claims)
+	if cfg.Auth.TOTPRequired && !isMfaVerified {
+		slog.WarnContext(ctx, "user has not completed required TOTP challenge", "uid", verifiedToken.UID)
+		return "", errors.New("mfa_required")
+	}
+
+	// ensure user exists in local database schema
+	_, err = s.userRepo.GetUserByFirebaseUID(ctx, verifiedToken.UID)
 	if err != nil {
-		// Check if error is due to record not existing
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			slog.Info("new user detected, executing database sync/seed", "uid", token.UID)
+			slog.InfoContext(ctx, "registering new user record in database", "uid", verifiedToken.UID)
 
-			// Extract details safely from Firebase claims
-			email, _ := token.Claims["email"].(string)
-			name, _ := token.Claims["name"].(string)
+			// extract basic user info
+			email, _ := verifiedToken.Claims["email"].(string)
+			name, _ := verifiedToken.Claims["name"].(string)
 
 			newUser := &models.User{
-				FirebaseUID: token.UID,
-				Email:       email,
-				DisplayName: name,
-				CreatedAt:   time.Now(),
-				Scope:       "engineer", // default fallback scope
-			}
-
-			if createErr := s.userRepo.CreateUser(ctx, newUser); createErr != nil {
-				slog.Error("failed to create user in database", "err", createErr)
-				return nil, errors.New("failed to provision user session")
-			}
-
-			return newUser, nil
-		}
-
-		slog.Error("database query anomaly during login lookup", "err", err)
-		return nil, err
-	}
-
-	return user, nil
-}
-
-/*
-newUser := &models.User{
-				FirebaseUID: uid,
+				FirebaseUID: verifiedToken.UID,
 				Email:       email,
 				DisplayName: name,
 				CreatedAt:   time.Now(),
 				Scope:       "engineer",
 			}
-
 			if createErr := s.userRepo.CreateUser(ctx, newUser); createErr != nil {
-				return nil, createErr
+				slog.ErrorContext(ctx, "failed to seed user record upon login token exchange", "error", createErr)
+				return "", errors.New("internal server registration error")
 			}
+		} else {
+			slog.ErrorContext(ctx, "database repository failure during user sync", "error", err)
+			return "", errors.New("internal server database error")
+		}
+	}
 
-			user = newUser
-*/
-/*
- // if err != nil {
-	// 	if errors.Is(err, gorm.ErrRecordNotFound) {
-	// 		log.Errorf("user not found: %v", err)
-	// 	} else {
-	// 		return nil, err
-	// 	}
-	// }
-*/
+	// generate and return backend signed session token
+	backendToken, err := s.generateAuthToken(verifiedToken.UID, isMfaVerified)
+	if err != nil {
+		return "", err
+	}
+
+	return backendToken, nil
+}
+
+// ParseAndValidateAuthToken decrypts and validates application tokens passed on subsequent HTTP calls.
+func (s *authService) ParseAndValidateAuthToken(ctx context.Context, tokenString string) (*types.Claims, error) {
+	cfg := config.Get()
+
+	token, err := jwt.ParseWithClaims(tokenString, &types.Claims{}, func(t *jwt.Token) (interface{}, error) {
+		// confirm the signing method is expected (HMAC-SHA256)
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("unexpected token signing algorithm")
+		}
+		return []byte(cfg.Auth.JWTSecret), nil
+	})
+
+	if err != nil {
+		slog.WarnContext(ctx, "failed to parse jwt", "error", err)
+		return nil, errors.New("invalid signature or expired session")
+	}
+
+	if claims, ok := token.Claims.(*types.Claims); ok && token.Valid {
+		return claims, nil
+	}
+
+	return nil, errors.New("invalid token payload claims")
+}
+
+// validateMFAClaims isolates the unexported dictionary verification checkout in middleware layer
+func (s *authService) validateMFAClaims(claims map[string]any) bool {
+	v, ok := claims["firebase"]
+	if !ok {
+		return false
+	}
+	firebaseClaims, ok := v.(map[string]any)
+	if !ok {
+		return false
+	}
+
+	methodRaw, ok := firebaseClaims["sign_in_second_factor"]
+	if !ok {
+		return false
+	}
+	method, ok := methodRaw.(string)
+	if !ok {
+		return false
+	}
+
+	// string match against expected 'totp' identifier value case-insensitively
+	return len(method) > 0 && (method == "totp" || method == "TOTP")
+}
+
+// generateAuthToken handles generating the cryptographic HS256 JWT signature
+func (s *authService) generateAuthToken(uid string, mfaVerified bool) (string, error) {
+	cfg := config.Get()
+
+	// create 1 hour expiration duration
+	expirationTime := time.Now().Add(1 * time.Hour)
+
+	claims := &types.Claims{
+		FirebaseUID: uid,
+		MfaVerified: mfaVerified,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(expirationTime),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Issuer:    "support-copilot-backend",
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString([]byte(cfg.Auth.JWTSecret))
+	if err != nil {
+		slog.Error("failed to generate system cryptographic signature", "error", err)
+		return "", errors.New("failed to sign backend session credentials")
+	}
+
+	return tokenString, nil
+}
