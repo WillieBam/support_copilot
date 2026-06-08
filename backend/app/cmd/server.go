@@ -36,15 +36,13 @@ func supportCopilotExec(cmd *cobra.Command, args []string) {
 		e.Use(middlewares.RecoveryMiddleware())
 		e.Use(middlewares.CORSMiddleware())
 
-		// authentication login endpoint
-		e.POST("/login", h.FirebaseLogin)
+		e.POST("/auth/exchange", h.TokenExchangeHandler)
 
-		g := e.Group("/query/chat")
-		if config.Get().Auth.Enabled {
-			g.Use(echo.WrapMiddleware(middlewares.AuthMiddleware))
-		}
-		g.POST("", h.Query)
+		g := e.Group("/query")
+		g.Use(middlewares.AuthMiddleware(a.Service.AuthService))
+
+		g.POST("/chat", h.Query)
 	}); err != nil {
-		slog.Error("server stopped", "err", err)
+		slog.Error("server gave up", "err", err)
 	}
 }
