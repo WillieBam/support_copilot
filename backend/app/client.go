@@ -34,7 +34,7 @@ func newAppClient() *appClient {
 	}
 
 	return &appClient{
-		httpClient:  &http.Client{Timeout: 30 * time.Second},
+		httpClient:  &http.Client{Timeout: 3 * time.Minute},
 		ollamaBase:  ollamaBaseURL,
 		ollamaModel: ollamaModel,
 	}
