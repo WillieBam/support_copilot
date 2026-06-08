@@ -1,6 +1,7 @@
 package endpoint
 
 import (
+	"log"
 	"log/slog"
 	"math"
 	"net/http"
@@ -9,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/WillieBam/support_copilot/backend/app"
-	"github.com/WillieBam/support_copilot/backend/types"
 	"github.com/labstack/echo/v5"
 )
 
@@ -21,33 +21,6 @@ func NewHandler(a *app.AppService) *Handler {
 	return &Handler{apps: a}
 }
 
-func (h *Handler) FirebaseLogin(c *echo.Context) error {
-	var req types.LoginRequest
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
-	}
-
-	if req.IDToken == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "firebase id_token is required"})
-	}
-
-	// Verify credentials and register/login user using the AuthService layer
-	user, err := h.apps.AuthService.LoginOrRegister(c.Request().Context(), req.IDToken)
-	if err != nil {
-		// Handle verification failure (expired token, revoked token, invalid credentials)
-		return c.JSON(http.StatusUnauthorized, map[string]string{
-			"error": "authentication failed: " + err.Error(),
-		})
-	}
-
-	return c.JSON(http.StatusOK, types.LoginResponse{
-		Message: "Authentication successful",
-		UID:     user.FirebaseUID,
-		Email:   user.Email,
-		Name:    user.DisplayName,
-	})
-}
-
 type queryRequest struct {
 	Input string `json:"input"`
 }
@@ -56,8 +29,50 @@ type queryResponse struct {
 	Output string `json:"output"`
 }
 
+// Define the payload structures
+type TokenExchangeRequest struct {
+	FirebaseToken string `json:"firebase_token"`
+}
+
+type TokenExchangeResponse struct {
+	Token string `json:"token"`
+}
+
+// TokenExchangeHandler converts a validated Firebase token into a JWT session token
+func (h *Handler) TokenExchangeHandler(c *echo.Context) error {
+	var req TokenExchangeRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Missing request payload"})
+	}
+
+	if req.FirebaseToken == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Missing firebase request"})
+	}
+
+	verified, err := h.apps.AuthService.ExchangeToken(c.Request().Context(), req.FirebaseToken)
+	if err != nil {
+		if err.Error() == "mfa_required" {
+			return c.JSON(http.StatusForbidden, map[string]string{
+				"error":   "mfa_required",
+				"message": "TOTP verification required",
+			})
+		}
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, TokenExchangeResponse{Token: verified})
+}
+
 // Query handles POST /query/chat
 func (h *Handler) Query(c *echo.Context) error {
+	uidVal := c.Get("user_uid")
+	appUID, ok := uidVal.(string)
+	if !ok || appUID == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{
+			"error": "Authentication required: missing support copilot token context",
+		})
+	}
+
+	log.Printf("[DEBUG] Successfully authenticated user UID: %s processing query stream.", appUID)
 	var req queryRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
@@ -67,6 +82,7 @@ func (h *Handler) Query(c *echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "input is required"})
 	}
 
+	// route query into service
 	result, err := h.apps.Query(c.Request().Context(), req.Input)
 	if err != nil {
 		errMsg := err.Error()
@@ -81,7 +97,6 @@ func (h *Handler) Query(c *echo.Context) error {
 				"error": "The model provider is rate limited. Please retry shortly.",
 			})
 		}
-
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to process query"})
 	}
 
