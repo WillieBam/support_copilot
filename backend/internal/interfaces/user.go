@@ -9,4 +9,5 @@ import (
 type IUserRepository interface {
 	CreateUser(ctx context.Context, user *models.User) error
 	GetUserByFirebaseUID(ctx context.Context, firebaseUid string) (*models.User, error)
+	UpsertUser(ctx context.Context, user *models.User) error
 }

@@ -41,15 +41,31 @@ func (s *authService) ExchangeToken(ctx context.Context, firebaseToken string) (
 	}
 
 	cfg := config.Get()
-
-	// enforce MFA if enabled in system config
 	isMfaVerified := s.validateMFAClaims(verifiedToken.Claims)
-	if cfg.Auth.TOTPRequired && !isMfaVerified {
-		slog.WarnContext(ctx, "user has not completed required TOTP challenge", "uid", verifiedToken.UID)
+
+	// ensure user exists in local database schema
+	email, _ := verifiedToken.Claims["email"].(string)
+	name, _ := verifiedToken.Claims["name"].(string)
+
+	newUser := &models.User{
+		FirebaseUID: verifiedToken.UID,
+		Email:       email,
+		DisplayName: name,
+		CreatedAt:   time.Now(),
+		Scope:       "engineer",
+	}
+
+	if err := s.userRepo.UpsertUser(ctx, newUser); err != nil {
+		slog.ErrorContext(ctx, "failed to cleanly sync user record upon token exchange", "error", err)
+		return "", errors.New("internal server database synchronization error")
+	}
+
+	hasEnrolledMFA := isMfaVerified || s.checkIfUserHasEnrolledMFA(verifiedToken.Claims)
+	if cfg.Auth.TOTPRequired && hasEnrolledMFA && !isMfaVerified {
+		slog.WarnContext(ctx, "User has registered MFA but skipped the validation challenge", "uid", verifiedToken.UID)
 		return "", errors.New("mfa_required")
 	}
 
-	// ensure user exists in local database schema
 	_, err = s.userRepo.GetUserByFirebaseUID(ctx, verifiedToken.UID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -158,4 +174,19 @@ func (s *authService) generateAuthToken(uid string, mfaVerified bool) (string, e
 	}
 
 	return tokenString, nil
+}
+
+func (s *authService) checkIfUserHasEnrolledMFA(claims map[string]any) bool {
+	v, ok := claims["firebase"]
+	if !ok {
+		return false
+	}
+	fbClaims, ok := v.(map[string]any)
+	if !ok {
+		return false
+	}
+
+	// If enrolled_factors list exists and isn't empty, they have configured MFA
+	_, hasFactors := fbClaims["enrolled_factors"]
+	return hasFactors
 }

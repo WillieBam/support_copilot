@@ -28,7 +28,6 @@ function LoadingScreen() {
 }
 
 function GlobalHeader({ auth }: { auth: AuthState }) {
-  const navigate = useNavigate()
   return (
     <header className="flex w-full h-[73px] items-center justify-between px-6 bg-black border-b border-neutral-800 shrink-0">
       <div className="flex items-center gap-3">
@@ -113,7 +112,7 @@ function ChatWorkspace({ auth, runtime }: { auth: AuthState; runtime: ReturnType
           <div className="absolute -top-40 -left-40 w-96 h-96 bg-emerald-500/5 rounded-[20px] blur-[120px] pointer-events-none" />
           <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-orange-500/5 rounded-[20px] blur-[120px] pointer-events-none" />
 
-          <div className="flex-1 flex flex-col pt-14 relative z-10 w-full h-full overflow-hidden">
+          <div className="flex-1 flex flex-col pt-14 relative z-10 w-full overflow-hidden">
             <AssistantRuntimeProvider runtime={runtime}>
               <Thread />
             </AssistantRuntimeProvider>

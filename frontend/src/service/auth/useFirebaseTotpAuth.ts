@@ -11,6 +11,7 @@ import {
   signInWithPassword,
   signOutCurrentUser,
   toErrorMessage,
+  exchangeToken,
 } from './authService'
 
 export function useFirebaseTotpAuth() {
@@ -44,6 +45,8 @@ export function useFirebaseTotpAuth() {
         setIsEmailVerified(refreshedUser.emailVerified)
         setHasTotpEnabled(hasTotpEnrollment(refreshedUser))
         if (refreshedUser.emailVerified) {
+          const backendJwtToken = await exchangeToken(refreshedUser)
+          setRawToken(backendJwtToken)
           setAuthStatus('Email verified. You must set up TOTP to access the workspace.')
         } else {
           setAuthStatus('Email is still unverified. Please check your inbox.')
@@ -56,25 +59,51 @@ export function useFirebaseTotpAuth() {
     }
   }
 
+  // 2. Centralized Session Interceptor Flow
   useEffect(() => {
     const unsubscribe = onIdTokenChanged(firebaseAuth, async (user) => {
-      setIsAuthReady(true)
-
       if (!user) {
         setToken('')
-        setRawToken('') // Clear raw token
+        setRawToken('')
         setHasTotpEnabled(false)
         setIsEmailVerified(false)
         setAuthStatus('Not signed in')
+        setIsAuthReady(true)
         return
       }
+      if (!user.emailVerified) {
+      setToken('UNVERIFIED_EMAIL_HOLDER') // Fake token to satisfy isSignedIn layout
+      setIsEmailVerified(false)
+      setHasTotpEnabled(false)
+      setAuthStatus('Account created. Verification email sent.')
+      setIsAuthReady(true)
+      return
+    }
 
-      const idToken = await user.getIdToken()
-      setRawToken(idToken) // Save clean JWT token for HTTP payloads
-      setToken(`Bearer ${idToken}`) // Save bearer format for request headers
-      setHasTotpEnabled(hasTotpEnrollment(user))
-      setIsEmailVerified(user.emailVerified)
-      setAuthStatus(`Signed in as ${user.email ?? user.uid}`)
+      try {
+        setAuthStatus('Synchronizing session credentials...')
+        
+        const backendJwtToken = await exchangeToken(user)
+        setRawToken(backendJwtToken)
+        setToken(`Bearer ${backendJwtToken}`)
+        
+        setHasTotpEnabled(hasTotpEnrollment(user))
+        setIsEmailVerified(user.emailVerified)
+        setAuthStatus(`Authenticated securely as ${user.email ?? user.uid}`)
+      } catch (err: any) {
+        console.error("Backend token synchronization failed:", err)
+        
+        if (err.message === 'mfa_required') {
+          setToken('MFA_PENDING_CLIENT_TOKEN')
+          setHasTotpEnabled(true)
+          setAuthStatus('Multi-factor verification required to establish session.')
+        } else {
+          setAuthError('Backend synchronization failed. Please sign in again.')
+          await signOutCurrentUser(firebaseAuth)
+        }
+      } finally {
+        setIsAuthReady(true)
+      }
     })
 
     return () => unsubscribe()
@@ -255,6 +284,7 @@ export function useFirebaseTotpAuth() {
     setIsBusy(true)
     try {
       await signOutCurrentUser(firebaseAuth)
+      localStorage.removeItem('support_copilot_token') // Clear custom JWT from cache
       setTotpResolver(null)
       setTotpHint(null)
       setTotpCode('')

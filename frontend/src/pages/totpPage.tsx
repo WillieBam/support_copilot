@@ -13,6 +13,8 @@ export const TotpPage: React.FC<TotpPageProps> = ({ auth }) => {
   const [success, setSuccess] = useState(false)
   const navigate = useNavigate()
 
+  console.log("hello")
+
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     await state.handleSubmit(e)

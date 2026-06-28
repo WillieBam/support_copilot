@@ -41,7 +41,6 @@ export const useLoginState = (auth: ReturnType<typeof useFirebaseTotpAuth>) => {
 
     await auth.signIn()
   }
-
   return {
     email: auth.email,
     password: auth.password,

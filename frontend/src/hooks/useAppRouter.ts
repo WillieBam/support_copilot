@@ -11,40 +11,38 @@ export function useAppRouter(auth: AuthState) {
   useEffect(() => {
     if (!auth.isAuthReady) return
 
-    const path = location.pathname
+    console.log("isSignedin", auth.isSignedIn)
+    if(auth.needsTotpSignIn){
+      if(location.pathname !== '/totp'){
+        navigate('/totp');
+        }
+        return;
+    }
 
-    if (!auth.isSignedIn) {
-      if (auth.needsTotpSignIn) {
-        if (path !== '/totp') {
-          navigate('/totp', { replace: true })
-        }
-      } else {
-        if (path !== '/login' && path !== '/register') {
-          navigate('/login', { replace: true })
-        }
+    if(!auth.isSignedIn) {
+      if(location.pathname !== '/login' && location.pathname !== '/register') {
+        navigate('/login');
       }
-    } else {
-      if (!auth.isEmailVerified) {
-        if (path !== '/login') {
-          navigate('/login', { replace: true })
-        }
-      } else if (!auth.hasTotpEnabled) {
-        if (path !== '/setup-totp') {
-          navigate('/login', { replace: true })
-        }
-      } else {
-        if (
-          path === '/login' ||
-          path === '/register' ||
-          path === '/setup-totp' ||
-          path === '/totp' ||
-          path === '/'
-        ) {
-          navigate('/chat', { replace: true })
-        }
+      return;
+    }
+
+    console.log("hasTotpEnabled", auth.hasTotpEnabled)
+    if(!auth.hasTotpEnabled) {
+      if(location.pathname !== '/setup-totp'){
+        navigate('/setup-totp');
+      }
+      return;
+    }
+
+    if(auth.isSignedIn && auth.hasTotpEnabled){
+      if(location.pathname === '/login' || location.pathname === '/register' ||
+        location.pathname == '/setup-totp' || location.pathname == '/totp'
+      ){
+        navigate('/chat');
       }
     }
-  }, [
+  }, 
+    [
     auth.isAuthReady,
     auth.isSignedIn,
     auth.isEmailVerified,
@@ -52,5 +50,6 @@ export function useAppRouter(auth: AuthState) {
     auth.needsTotpSignIn,
     location.pathname,
     navigate,
-  ])
+  ]
+  )
 }
