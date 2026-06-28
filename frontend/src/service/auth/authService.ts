@@ -14,6 +14,8 @@ import {
   type TotpSecret,
   type User,
 } from 'firebase/auth'
+import { data } from 'react-router-dom';
+import apiClient from '../apiClient';
 
 export type SignInResult =
   | { type: 'signed-in' }
@@ -88,3 +90,24 @@ export function toErrorMessage(error: unknown, fallback: string): string {
       return error instanceof Error ? error.message : fallback
   }
 }
+
+export async function exchangeToken (user: User): Promise<string>{
+  try {
+    const firebaseToken = await user.getIdToken(true);
+    
+   const response =  await apiClient.post('/auth/exchange', {      
+      firebase_token: firebaseToken
+    });
+    const backendToken = response.data.token;
+    localStorage.setItem('support_copilot_token', backendToken);
+    return backendToken;
+
+  }catch(error: any){
+    console.error("Tokene exchange failed", error)
+    if (error.response && error.response.status === 403 && error.response.data?.error === 'mfa_required') {
+      throw new Error('mfa_required');
+    }
+  throw error
+  }    
+}
+

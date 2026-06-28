@@ -2,21 +2,24 @@ package app
 
 import (
 	"context"
+
+	"github.com/WillieBam/support_copilot/backend/internal/interfaces"
 )
 
-type appService struct {
-	client     *appClient
-	repository *appRepository
+type AppService struct {
+	client      *appClient
+	repo        *appRepository
+	AuthService interfaces.IAuthService
 }
 
-func newAppService(client *appClient, repository *appRepository) *appService {
-	return &appService{
-		client:     client,
-		repository: repository,
+func newAppService(client *appClient, repo *appRepository, authService interfaces.IAuthService) *AppService {
+	return &AppService{
+		client:      client,
+		repo:        repo,
+		AuthService: authService,
 	}
 }
 
-// Query satisfies interfaces.ISupportCopilotService.
-func (s *appService) Query(ctx context.Context, input string) (string, error) {
-	return s.client.Query(ctx, input)
+func (s *AppService) Query(ctx context.Context, prompt string) (string, error) {
+	return s.client.Query(ctx, prompt)
 }

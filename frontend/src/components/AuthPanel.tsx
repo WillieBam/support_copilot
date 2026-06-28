@@ -51,6 +51,7 @@ function AuthPanel(props: AuthPanelProps) {
     await props.enrollTotp()
   }
 
+  // --- RENDER CONDITION 1: User is already Authenticated with Firebase ---
   if (props.isSignedIn) {
     return (
       <section className="auth-box">
@@ -140,50 +141,15 @@ function AuthPanel(props: AuthPanelProps) {
     )
   }
 
+  // --- RENDER CONDITION 2: User is NOT Signed In (Show Login Forms) ---
   return (
     <section className="auth-box">
       <p className="auth-title">Firebase Auth</p>
 
-      <form className="auth-grid" onSubmit={handleSignIn}>
-        <label htmlFor="email">Email</label>
-        <input
-          id="email"
-          type="email"
-          value={props.email}
-          onChange={(event) => props.setEmail(event.target.value)}
-          placeholder="name@example.com"
-          autoComplete="email"
-          required
-        />
-
-        <label htmlFor="password">Password</label>
-        <input
-          id="password"
-          type="password"
-          value={props.password}
-          onChange={(event) => props.setPassword(event.target.value)}
-          placeholder="Your password"
-          autoComplete="current-password"
-          required
-        />
-
-        <div className="auth-actions">
-          <button type="submit" disabled={props.isBusy || !props.email.trim() || !props.password}>
-            {props.isBusy ? 'Working...' : 'Sign in'}
-          </button>
-        </div>
-      </form>
-
-      <form className="auth-grid" onSubmit={handleRegister}>
-        <div className="auth-actions">
-          <button type="submit" disabled={props.isBusy || !props.email.trim() || !props.password}>
-            {props.isBusy ? 'Working...' : 'Create account'}
-          </button>
-        </div>
-      </form>
-
+      {/* Conditional Rendering: If TOTP Multi-factor validation challenge is active, swap out forms */}
       {props.needsTotpSignIn ? (
         <form className="auth-grid auth-grid-totp" onSubmit={handleVerifyTotp}>
+          <p className="auth-help">Multi-Factor Authentication Required.</p>
           <label htmlFor="totp">Authenticator code</label>
           <input
             id="totp"
@@ -194,11 +160,53 @@ function AuthPanel(props: AuthPanelProps) {
             placeholder="123456"
             required
           />
-          <button type="submit" disabled={props.isBusy || !props.totpCode.trim()}>
-            {props.isBusy ? 'Verifying...' : 'Verify TOTP'}
-          </button>
+          <div className="auth-actions">
+            <button type="submit" disabled={props.isBusy || !props.totpCode.trim()}>
+              {props.isBusy ? 'Verifying...' : 'Verify TOTP'}
+            </button>
+          </div>
         </form>
-      ) : null}
+      ) : (
+        <>
+          <form className="auth-grid" onSubmit={handleSignIn}>
+            <label htmlFor="email">Email</label>
+            <input
+              id="email"
+              type="email"
+              value={props.email}
+              onChange={(event) => props.setEmail(event.target.value)}
+              placeholder="name@example.com"
+              autoComplete="email"
+              required
+            />
+
+            <label htmlFor="password">Password</label>
+            <input
+              id="password"
+              type="password"
+              value={props.password}
+              onChange={(event) => props.setPassword(event.target.value)}
+              placeholder="Your password"
+              autoComplete="current-password"
+              required
+            />
+
+            <div className="auth-actions">
+              <button type="submit" disabled={props.isBusy || !props.email.trim() || !props.password}>
+                {props.isBusy ? 'Working...' : 'Sign in'}
+              </button>
+            </div>
+          </form>
+
+          <form className="auth-grid" onSubmit={handleRegister}>
+            <div className="auth-actions">
+              <button type="submit" disabled={props.isBusy || !props.email.trim() || !props.password}>
+                {props.isBusy ? 'Working...' : 'Create account'}
+              </button>
+            </div>
+          </form>
+        </>
+      )}
 
       <p className="auth-status">{props.authStatus}</p>
       {props.authError ? <p className="error">Auth Error: {props.authError}</p> : null}

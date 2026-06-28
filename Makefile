@@ -16,7 +16,8 @@ dev-start:
 		-e POSTGRES_DB=$(DB_NAME) \
 		-p $(DB_PORT):5432 \
 		-d docker.io/library/postgres:15
-
+migrate:
+	go run backend/main.go migrate
 dev:
 	go run -race backend/main.go server
 

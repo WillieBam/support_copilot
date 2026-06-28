@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useLocalRuntime, type ChatModelAdapter, type ThreadMessage } from '@assistant-ui/react'
+import apiClient from '../apiClient'
 
 const DEFAULT_API_BASE_URL = 'http://localhost:8080'
 const SYSTEM_INSTRUCTION =
@@ -32,48 +33,25 @@ function buildPrompt(messages: readonly ThreadMessage[]): string {
   return lines.join('\n\n')
 }
 
-export function useBackendRuntime(authToken: string) {
-  const authTokenRef = useRef(authToken)
-  useEffect(() => {
-    authTokenRef.current = authToken
-  }, [authToken])
-
-  const chatModelRef = useRef<ChatModelAdapter>({
+export function useBackendRuntime() {
+ const chatModelRef = useRef<ChatModelAdapter>({
+  
     async run({messages, abortSignal}) {
-      const response = await fetch(ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(authTokenRef.current.trim() ? {Authorization: authTokenRef.current.trim()} : {})
-        },
-        body: JSON.stringify({input: buildPrompt(messages)}),
-        signal: abortSignal,
-      })
-
-      let payload: {output?: string; error?: string} = {}
       try{
-        payload = (await response.json() as {output?: string; error?: string})
-      }catch {
-        payload = {}
-      }
-      if (!response.ok) {
-        throw new Error(payload.error || `Backend request failed (${response.status})`)
-      }
-
-      return {
-        content: [{ type: 'text', text: payload.output ?? '' }],
-        status: { type: 'complete', reason: 'stop' },
-        metadata: {
-          custom: {
-            backendUrl: ENDPOINT,
-          },
-        },
+        const response = await apiClient.post('/query/chat',
+          {input: buildPrompt(messages)},
+          {signal: abortSignal}
+        );
+        return {
+          content: [{type: 'text', text: response.data.output ?? ''}],
+          status: {type: 'complete', reason:'stop'},
+        }
+      } catch (error: any) {
+        const errMsg = error.response?.data?.error || `Backend request failed`;
+        throw new Error (errMsg);
       }
     }
+
   })
-
-
-  const runtime = useLocalRuntime(chatModelRef.current)
-
-  return { runtime, endpoint:ENDPOINT }
+  return { runtime: useLocalRuntime(chatModelRef.current) }
 }

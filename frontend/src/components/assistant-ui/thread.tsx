@@ -58,9 +58,10 @@ export const Thread: FC = () => {
       }}
     >
       <ThreadPrimitive.Viewport
-        turnAnchor="top"
+        turnAnchor="bottom"
         data-slot="aui_thread-viewport"
-        className="relative flex flex-1 flex-col overflow-x-auto overflow-y-scroll scroll-smooth"
+        // topAnchorMessageClamp={{ tallerThan: "12em", visibleHeight: "8em" }}
+        className="relative flex flex-1 flex-col overflow-x-auto overflow-y-scroll"
       >
         <div className="mx-auto flex w-full max-w-(--thread-max-width) flex-1 flex-col px-4 pt-4">
           <AuiIf condition={(s) => s.thread.isEmpty}>
@@ -75,13 +76,13 @@ export const Thread: FC = () => {
               {() => <ThreadMessage />}
             </ThreadPrimitive.Messages>
           </div>
-
-          <ThreadPrimitive.ViewportFooter className="aui-thread-viewport-footer sticky bottom-0 mt-auto flex flex-col gap-4 overflow-visible rounded-t-(--composer-radius) bg-background pb-4 md:pb-6">
-            <ThreadScrollToBottom />
-            <Composer />
-          </ThreadPrimitive.ViewportFooter>
-        </div>
+      </div>
       </ThreadPrimitive.Viewport>
+
+      <div className="mx-auto w-full max-w-(--thread-max-width) px-4 pb-4 md:pb-6 relative flex flex-col gap-4 bg-background">
+        <ThreadScrollToBottom />
+        <Composer />
+      </div>
     </ThreadPrimitive.Root>
   );
 };

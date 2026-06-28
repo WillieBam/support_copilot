@@ -33,7 +33,7 @@ services:
       DATABASE_NAME: ${DB_NAME}
       AUTH_ENABLED: ${AUTH_ENABLED:-false}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
     depends_on:
       postgres:
         condition: service_healthy
@@ -61,7 +61,7 @@ services:
     command: sh -c "pip install --no-cache-dir -r requirements.txt && python server.py"
     environment:
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
       MCP_HOST: 0.0.0.0
       MCP_PORT: ${MCP_PORT:-9000}
       MCP_PATH: /mcp

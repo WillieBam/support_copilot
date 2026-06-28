@@ -30,11 +30,11 @@ func newAppClient() *appClient {
 
 	ollamaModel := strings.TrimSpace(cfg.Ollama.Model)
 	if ollamaModel == "" {
-		ollamaModel = "llama3.1"
+		ollamaModel = "llama3.2"
 	}
 
 	return &appClient{
-		httpClient:  &http.Client{Timeout: 30 * time.Second},
+		httpClient:  &http.Client{Timeout: 3 * time.Minute},
 		ollamaBase:  ollamaBaseURL,
 		ollamaModel: ollamaModel,
 	}
