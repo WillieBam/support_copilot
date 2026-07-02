@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	"log"
 
 	"github.com/WillieBam/support_copilot/backend/internal/interfaces"
 	"github.com/WillieBam/support_copilot/backend/types/models"
@@ -34,7 +33,6 @@ func (u *userRepository) GetUserByFirebaseUID(ctx context.Context, firebaseUid s
 }
 
 func (u *userRepository) UpsertUser(ctx context.Context, user *models.User) error {
-	log.Println("comes into Upsert user")
 	return u.db.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "firebase_uid"}},
 		DoUpdates: clause.AssignmentColumns([]string{"email", "display_name"}),

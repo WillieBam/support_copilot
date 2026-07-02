@@ -6,7 +6,7 @@ export const useLoginState = (auth: ReturnType<typeof useFirebaseTotpAuth>) => {
   const [passwordError, setPasswordError] = useState('')
 
   const handleEmailChange = (val: string) => {
-    auth.setEmail(val)
+    auth.setLoginEmail(val)
     if (emailError) setEmailError('')
   }
 
@@ -21,10 +21,10 @@ export const useLoginState = (auth: ReturnType<typeof useFirebaseTotpAuth>) => {
     setPasswordError('')
 
     let hasError = false
-    if (!auth.email.trim()) {
+    if (!auth.loginEmail.trim()) {
       setEmailError('Email is required')
       hasError = true
-    } else if (!/\S+@\S+\.\S+/.test(auth.email)) {
+    } else if (!/\S+@\S+\.\S+/.test(auth.loginEmail)) {
       setEmailError('Invalid email format')
       hasError = true
     }
@@ -42,7 +42,7 @@ export const useLoginState = (auth: ReturnType<typeof useFirebaseTotpAuth>) => {
     await auth.signIn()
   }
   return {
-    email: auth.email,
+    email: auth.loginEmail,
     password: auth.password,
     emailError,
     passwordError,

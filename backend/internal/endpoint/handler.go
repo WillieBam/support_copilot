@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/WillieBam/support_copilot/backend/app"
 	"github.com/labstack/echo/v5"
@@ -49,7 +50,7 @@ func (h *Handler) TokenExchangeHandler(c *echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Missing firebase request"})
 	}
 
-	verified, err := h.apps.AuthService.ExchangeToken(c.Request().Context(), req.FirebaseToken)
+	verified, claims, err := h.apps.AuthService.ExchangeToken(c.Request().Context(), req.FirebaseToken)
 	if err != nil {
 		if err.Error() == "mfa_required" {
 			return c.JSON(http.StatusForbidden, map[string]string{
@@ -59,7 +60,47 @@ func (h *Handler) TokenExchangeHandler(c *echo.Context) error {
 		}
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": err.Error()})
 	}
-	return c.JSON(http.StatusOK, TokenExchangeResponse{Token: verified})
+
+	var expires time.Time
+	if claims != nil && claims.ExpiresAt != nil {
+		expires = claims.ExpiresAt.Time
+	} else {
+		expires = time.Now().Add(1 * time.Hour)
+	}
+
+	cookie := &http.Cookie{
+		Name:     "support_copilot_session",
+		Value:    verified,
+		Expires:  expires,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteLaxMode,
+	}
+	c.SetCookie(cookie)
+	slog.Info("Successfully created and attached HttpOnly session cookie",
+		"user_uid", claims.FirebaseUID,
+		"expires_at", expires.Format(time.RFC3339),
+	)
+	return c.JSON(http.StatusOK, map[string]string{"status": "authenticated"})
+}
+
+func (h *Handler) Me(c *echo.Context) error {
+	uidVal := c.Get("user_uid")
+	appUID, ok := uidVal.(string)
+	if !ok || appUID == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized session"})
+	}
+
+	emailVal := c.Get("user_email")
+	email, _ := emailVal.(string)
+
+	// return info about who is authenticated to revive React UI client state
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"authenticated": true,
+		"user_uid":      appUID,
+		"user_email":    email,
+	})
 }
 
 // Query handles POST /query/chat

@@ -12,12 +12,12 @@ import {
   signOutCurrentUser,
   toErrorMessage,
   exchangeToken,
+  getSession,
 } from './authService'
 
 export function useFirebaseTotpAuth() {
   const [token, setToken] = useState('')
   const [rawToken, setRawToken] = useState('')
-  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [totpCode, setTotpCode] = useState('')
   const [enrollCode, setEnrollCode] = useState('')
@@ -31,7 +31,9 @@ export function useFirebaseTotpAuth() {
   const [isAuthReady, setIsAuthReady] = useState(false)
   const [authStatus, setAuthStatus] = useState('Not signed in')
   const [authError, setAuthError] = useState('')
-
+  const [loginEmail, setLoginEmail] = useState('');
+  const [userEmail, setUserEmail] = useState('');
+  
   const checkVerificationStatus = async () => {
     const user = firebaseAuth.currentUser
     if (!user) return
@@ -45,8 +47,9 @@ export function useFirebaseTotpAuth() {
         setIsEmailVerified(refreshedUser.emailVerified)
         setHasTotpEnabled(hasTotpEnrollment(refreshedUser))
         if (refreshedUser.emailVerified) {
-          const backendJwtToken = await exchangeToken(refreshedUser)
-          setRawToken(backendJwtToken)
+          await exchangeToken(refreshedUser)
+          setRawToken('COOKIE_CONTAINED_SESSION')
+          setToken('Bearer COOKIE_CONTAINED_SESSION')
           setAuthStatus('Email verified. You must set up TOTP to access the workspace.')
         } else {
           setAuthStatus('Email is still unverified. Please check your inbox.')
@@ -59,55 +62,110 @@ export function useFirebaseTotpAuth() {
     }
   }
 
-  // 2. Centralized Session Interceptor Flow
   useEffect(() => {
-    const unsubscribe = onIdTokenChanged(firebaseAuth, async (user) => {
-      if (!user) {
-        setToken('')
-        setRawToken('')
-        setHasTotpEnabled(false)
-        setIsEmailVerified(false)
-        setAuthStatus('Not signed in')
-        setIsAuthReady(true)
-        return
-      }
-      if (!user.emailVerified) {
-      setToken('UNVERIFIED_EMAIL_HOLDER') // Fake token to satisfy isSignedIn layout
-      setIsEmailVerified(false)
-      setHasTotpEnabled(false)
-      setAuthStatus('Account created. Verification email sent.')
-      setIsAuthReady(true)
-      return
-    }
+    let unsubscribe: (() => void) | null = null;
+    let isMounted = true;
+
+    const initAuth = async () => {
+      let activeSessionUid: string | null = null;
 
       try {
-        setAuthStatus('Synchronizing session credentials...')
-        
-        const backendJwtToken = await exchangeToken(user)
-        setRawToken(backendJwtToken)
-        setToken(`Bearer ${backendJwtToken}`)
-        
-        setHasTotpEnabled(hasTotpEnrollment(user))
-        setIsEmailVerified(user.emailVerified)
-        setAuthStatus(`Authenticated securely as ${user.email ?? user.uid}`)
-      } catch (err: any) {
-        console.error("Backend token synchronization failed:", err)
-        
-        if (err.message === 'mfa_required') {
-          setToken('MFA_PENDING_CLIENT_TOKEN')
-          setHasTotpEnabled(true)
-          setAuthStatus('Multi-factor verification required to establish session.')
-        } else {
-          setAuthError('Backend synchronization failed. Please sign in again.')
-          await signOutCurrentUser(firebaseAuth)
+        const session = await getSession()
+        if (session.authenticated && session.user_uid) {
+          activeSessionUid = session.user_uid;
+          if (isMounted) {
+            setToken("COOKIE_SESSION")
+            setRawToken("COOKIE_SESSION")
+            setUserEmail(session.user_email || session.user_uid)
+          }
         }
-      } finally {
-        setIsAuthReady(true)
+      } catch (e) {
+        console.log("Session error: ", e)
       }
-    })
 
-    return () => unsubscribe()
-  }, [])
+      if (!isMounted) return;
+
+      unsubscribe = onIdTokenChanged(firebaseAuth, async (user) => {
+        if (!isMounted) return;
+
+        if (!user) {
+          setToken('')
+          setUserEmail('')
+          setRawToken('')
+          setHasTotpEnabled(false)
+          setIsEmailVerified(false)
+          setAuthStatus('Not signed in')
+          setIsAuthReady(true)
+          activeSessionUid = null;
+          return
+        }
+
+        if (!user.emailVerified) {
+          setToken('UNVERIFIED_EMAIL_HOLDER') // Fake token to satisfy isSignedIn layout
+          setIsEmailVerified(false)
+          setHasTotpEnabled(false)
+          setAuthStatus('Account created. Verification email sent.')
+          setIsAuthReady(true)
+          activeSessionUid = null;
+          return
+        }
+
+        // If a valid backend session cookie already exists for this same Firebase user,
+        // we can skip the exchangeToken call to avoid unnecessarily updating the cookie's expires_at.
+        if (activeSessionUid === user.uid) {
+          setToken("COOKIE_SESSION")
+          setRawToken("COOKIE_SESSION")
+          setUserEmail(user.email ?? '')
+          setHasTotpEnabled(hasTotpEnrollment(user))
+          setIsEmailVerified(user.emailVerified)
+          setAuthStatus(`Authenticated securely as ${user.email ?? user.uid}`)
+          setIsAuthReady(true)
+          return
+        }
+
+        try {
+          setAuthStatus('Synchronizing session credentials...')
+          await exchangeToken(user)
+          if (isMounted) {
+            setToken("COOKIE_SESSION")
+            setRawToken("COOKIE_SESSION")
+            setUserEmail(user.email ?? '')
+            setHasTotpEnabled(hasTotpEnrollment(user))
+            setIsEmailVerified(user.emailVerified)
+            setAuthStatus(`Authenticated securely as ${user.email ?? user.uid}`)
+            setIsAuthReady(true)
+            activeSessionUid = user.uid;
+          }
+        } catch (err: any) {
+          if (isMounted) {
+            console.error("Backend token synchronization failed:", err)
+            
+            if (err.message === 'mfa_required') {
+              setToken('MFA_PENDING_CLIENT_TOKEN')
+              setHasTotpEnabled(true)
+              setAuthStatus('Multi-factor verification required to establish session.')
+            } else {
+              setAuthError('Backend synchronization failed. Please sign in again.')
+              await signOutCurrentUser(firebaseAuth)
+            }
+          }
+        } finally {
+          if (isMounted) {
+            setIsAuthReady(true)
+          }
+        }
+      })
+    }
+
+    initAuth()
+
+    return () => {
+      isMounted = false;
+      if (unsubscribe) {
+        unsubscribe()
+      }
+    }
+  }, []);
 
   const isSignedIn = token !== ''
 
@@ -117,7 +175,7 @@ export function useFirebaseTotpAuth() {
     setAuthError('')
     setIsBusy(true)
     try {
-      const result = await signInWithPassword(firebaseAuth, email.trim(), password)
+      const result = await signInWithPassword(firebaseAuth, loginEmail.trim(), password)
       if (result.type === 'totp-required') {
         setTotpResolver(result.resolver)
         setTotpHint(result.hint)
@@ -131,6 +189,16 @@ export function useFirebaseTotpAuth() {
       if (!firebaseAuth.currentUser?.emailVerified) {
         setAuthStatus('Signed in, but email is not verified yet. Verify email first, then set up TOTP.')
       }
+      const user = firebaseAuth.currentUser
+      if (user) {
+        await exchangeToken(user)
+        setToken("COOKIE_SESSION")
+        setRawToken("COOKIE_SESSION")
+        setUserEmail(user.email ?? '')
+        setHasTotpEnabled(hasTotpEnrollment(user))
+        setIsEmailVerified(user.emailVerified)
+      }
+
     } catch (error) {
       setAuthError(toErrorMessage(error, 'Sign-in failed'))
       setAuthStatus('Sign-in failed')
@@ -152,6 +220,20 @@ export function useFirebaseTotpAuth() {
     setIsBusy(true)
     try {
       await resolveTotpSignIn(totpResolver, totpHint.uid, code)
+      const user = firebaseAuth.currentUser
+      console.log("Current user:", user?.uid)
+
+      if (!user) {
+        throw new Error("Firebase user missing after TOTP sign in")
+      }
+      await exchangeToken(user)
+
+      setUserEmail(user.email ?? "")
+      setToken("COOKIE_SESSION")
+      setRawToken("COOKIE_SESSION")
+      setHasTotpEnabled(hasTotpEnrollment(user))
+      setIsEmailVerified(user.emailVerified)
+
       setTotpResolver(null)
       setTotpHint(null)
       setTotpCode('')
@@ -170,7 +252,7 @@ export function useFirebaseTotpAuth() {
     setAuthError('')
     setIsBusy(true)
     try {
-      const user = await createAccount(firebaseAuth, email.trim(), password)
+      const user = await createAccount(firebaseAuth, loginEmail.trim(), password)
       await sendVerificationEmail(user)
       setEnrollSecret(null)
       setEnrollOtpAuthUrl('')
@@ -284,7 +366,6 @@ export function useFirebaseTotpAuth() {
     setIsBusy(true)
     try {
       await signOutCurrentUser(firebaseAuth)
-      localStorage.removeItem('support_copilot_token') // Clear custom JWT from cache
       setTotpResolver(null)
       setTotpHint(null)
       setTotpCode('')
@@ -294,6 +375,7 @@ export function useFirebaseTotpAuth() {
       setHasTotpEnabled(false)
       setIsEmailVerified(false)
       setAuthStatus('Signed out')
+      setUserEmail('');
     } catch (error) {
       setAuthError(toErrorMessage(error, 'Sign-out failed'))
     } finally {
@@ -304,9 +386,10 @@ export function useFirebaseTotpAuth() {
   return {
     token,
     rawToken,
-    email,
+    loginEmail,
+    setLoginEmail,
+    userEmail,
     password,
-    setEmail,
     setPassword,
     totpCode,
     setTotpCode,
