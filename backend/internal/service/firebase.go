@@ -32,12 +32,12 @@ func New(asp AuthServiceParam) interfaces.IAuthService {
 	}
 }
 
-func (s *authService) ExchangeToken(ctx context.Context, firebaseToken string) (string, error) {
+func (s *authService) ExchangeToken(ctx context.Context, firebaseToken string) (string, *types.Claims, error) {
 	// verify the incoming token with firebase
 	verifiedToken, err := s.firebaseRepo.VerifyIDToken(ctx, firebaseToken)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to verify firebase id token", "error", err)
-		return "", errors.New("invalid or expired firebase token")
+		return "", nil, errors.New("invalid or expired firebase token")
 	}
 
 	cfg := config.Get()
@@ -57,13 +57,13 @@ func (s *authService) ExchangeToken(ctx context.Context, firebaseToken string) (
 
 	if err := s.userRepo.UpsertUser(ctx, newUser); err != nil {
 		slog.ErrorContext(ctx, "failed to cleanly sync user record upon token exchange", "error", err)
-		return "", errors.New("internal server database synchronization error")
+		return "", nil, errors.New("internal server database synchronization error")
 	}
 
 	hasEnrolledMFA := isMfaVerified || s.checkIfUserHasEnrolledMFA(verifiedToken.Claims)
 	if cfg.Auth.TOTPRequired && hasEnrolledMFA && !isMfaVerified {
 		slog.WarnContext(ctx, "User has registered MFA but skipped the validation challenge", "uid", verifiedToken.UID)
-		return "", errors.New("mfa_required")
+		return "", nil, errors.New("mfa_required")
 	}
 
 	_, err = s.userRepo.GetUserByFirebaseUID(ctx, verifiedToken.UID)
@@ -84,21 +84,21 @@ func (s *authService) ExchangeToken(ctx context.Context, firebaseToken string) (
 			}
 			if createErr := s.userRepo.CreateUser(ctx, newUser); createErr != nil {
 				slog.ErrorContext(ctx, "failed to seed user record upon login token exchange", "error", createErr)
-				return "", errors.New("internal server registration error")
+				return "", nil, errors.New("internal server registration error")
 			}
 		} else {
 			slog.ErrorContext(ctx, "database repository failure during user sync", "error", err)
-			return "", errors.New("internal server database error")
+			return "", nil, errors.New("internal server database error")
 		}
 	}
 
 	// generate and return backend signed session token
-	backendToken, err := s.generateAuthToken(verifiedToken.UID, isMfaVerified)
+	backendToken, claims, err := s.generateAuthToken(verifiedToken.UID, email, isMfaVerified)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
-	return backendToken, nil
+	return backendToken, claims, nil
 }
 
 // ParseAndValidateAuthToken decrypts and validates application tokens passed on subsequent HTTP calls.
@@ -150,7 +150,7 @@ func (s *authService) validateMFAClaims(claims map[string]any) bool {
 }
 
 // generateAuthToken handles generating the cryptographic HS256 JWT signature
-func (s *authService) generateAuthToken(uid string, mfaVerified bool) (string, error) {
+func (s *authService) generateAuthToken(uid string, email string, mfaVerified bool) (string, *types.Claims, error) {
 	cfg := config.Get()
 
 	// create 1 hour expiration duration
@@ -158,6 +158,7 @@ func (s *authService) generateAuthToken(uid string, mfaVerified bool) (string, e
 
 	claims := &types.Claims{
 		FirebaseUID: uid,
+		Email:       email,
 		MfaVerified: mfaVerified,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
@@ -170,10 +171,10 @@ func (s *authService) generateAuthToken(uid string, mfaVerified bool) (string, e
 	tokenString, err := token.SignedString([]byte(cfg.Auth.JWTSecret))
 	if err != nil {
 		slog.Error("failed to generate system cryptographic signature", "error", err)
-		return "", errors.New("failed to sign backend session credentials")
+		return "", nil, errors.New("failed to sign backend session credentials")
 	}
 
-	return tokenString, nil
+	return tokenString, claims, nil
 }
 
 func (s *authService) checkIfUserHasEnrolledMFA(claims map[string]any) bool {

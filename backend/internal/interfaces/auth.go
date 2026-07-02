@@ -7,6 +7,6 @@ import (
 )
 
 type IAuthService interface {
-	ExchangeToken(ctx context.Context, firebaseToken string) (string, error)
+	ExchangeToken(ctx context.Context, firebaseToken string) (string, *types.Claims, error)
 	ParseAndValidateAuthToken(ctx context.Context, tokenString string) (*types.Claims, error)
 }

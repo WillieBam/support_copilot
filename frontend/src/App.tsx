@@ -2,7 +2,7 @@ import { useFirebaseTotpAuth } from './service/auth/useFirebaseTotpAuth'
 import { Thread } from './components/assistant-ui/thread'
 import { AssistantRuntimeProvider } from '@assistant-ui/react'
 import { useBackendRuntime } from './service/chat/backendRuntime'
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import { LoginPage } from './pages/loginPage'
 import { RegisterPage } from './pages/registerPage'
 import { SetupTotp } from './pages/setupTotp'
@@ -72,9 +72,10 @@ function ChatWorkspace({ auth, runtime }: { auth: AuthState; runtime: ReturnType
   const { isSidebarOpen, toggleSidebar } = useWorkspaceState()
   
   // Extract user info
-  const initial = auth.email?.charAt(0).toUpperCase() || 'U'
-  const email = auth.email || 'user@example.com'
-  const displayName = email.split('@')[0] // Fallback for name
+
+const email = auth.userEmail;
+const initial = email ? email.charAt(0).toUpperCase() : 'U';
+const displayName = email ? email.split('@')[0] : '';
 
   return (
     <div className="flex w-full flex-1 overflow-hidden bg-black text-white relative">

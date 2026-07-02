@@ -1,13 +1,13 @@
-import { useEffect, useRef } from 'react'
+import { useRef } from 'react'
 import { useLocalRuntime, type ChatModelAdapter, type ThreadMessage } from '@assistant-ui/react'
 import apiClient from '../apiClient'
 
-const DEFAULT_API_BASE_URL = 'http://localhost:8080'
+// const DEFAULT_API_BASE_URL = 'http://localhost:8080'
 const SYSTEM_INSTRUCTION =
   'You are Support Copilot. Be concise, accurate, and helpful. If the user asks about authentication, mention the Firebase TOTP flow when relevant.'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL
-const ENDPOINT = new URL('/query/chat', API_BASE_URL).toString()
+// const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL
+// const ENDPOINT = new URL('/query/chat', API_BASE_URL).toString()
 
 function extractText(message: ThreadMessage): string {
   return message.content
