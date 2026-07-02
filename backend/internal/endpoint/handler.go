@@ -1,6 +1,7 @@
 package endpoint
 
 import (
+	"fmt"
 	"log"
 	"log/slog"
 	"math"
@@ -142,6 +143,46 @@ func (h *Handler) Query(c *echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, queryResponse{Output: result})
+}
+
+func (h *Handler) PoCChatHandler(c *echo.Context) error {
+	resp := c.Response()
+
+	resp.Header().Set("Content-Type", "text/event-stream")
+	resp.Header().Set("Cache-Control", "no-cache")
+	resp.Header().Set("Connection", "keep-alive")
+
+	resp.WriteHeader(http.StatusOK)
+
+	flusher, ok := resp.(http.Flusher)
+	if !ok {
+		return c.String(http.StatusInternalServerError, "Streaming unsupported")
+	}
+
+	flusher.Flush()
+
+	// mock streaming sequence for PoC of SSE and also reasoning steps of LLM
+	reasoningMsg1 := `{"type": "reasoning", "content": "I am analyzing the incoming alert..."}`
+	fmt.Fprintf(resp, "data: %s\n\n", reasoningMsg1)
+	flusher.Flush()
+	time.Sleep(1 * time.Second) // fake the delay time so can see it in ui
+
+	reasoningMsg2 := `{"type": "reasoning", "content": "Calling MCP Tool: validate_alert()..."}`
+	fmt.Fprintf(resp, "data: %s\n\n", reasoningMsg2)
+	flusher.Flush()
+	time.Sleep(2 * time.Second) // fake the delay time so can see it in ui
+
+	// simulatellm streaming final text chuncks
+	textChunk1 := `{"type": "text", "content": "The mock tool returned the data. "}`
+	fmt.Fprintf(resp, "data: %s\n\n", textChunk1)
+	flusher.Flush()
+	time.Sleep(500 * time.Millisecond)
+
+	textChunk2 := `{"type": "text", "content": "\n\n**Root Cause:** yas SSE work until this last message! "}`
+	fmt.Fprintf(resp, "data: %s\n\n", textChunk2)
+	flusher.Flush()
+
+	return nil
 }
 
 func extractRetryAfterSeconds(msg string) int {
