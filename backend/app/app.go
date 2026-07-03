@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/WillieBam/support_copilot/backend/app/config"
+	"github.com/WillieBam/support_copilot/backend/internal/interfaces"
 	firebaseRepo "github.com/WillieBam/support_copilot/backend/internal/repository/firebase"
 	postgresRepo "github.com/WillieBam/support_copilot/backend/internal/repository/postgres"
 	"github.com/WillieBam/support_copilot/backend/internal/service"
@@ -13,9 +14,10 @@ import (
 )
 
 type App struct {
-	Client     *appClient
-	Repository *appRepository
-	Service    *AppService
+	Client      *appClient
+	Repository  *appRepository
+	Service     interfaces.IAppService
+	AuthService interfaces.IAuthService
 }
 
 func NewApp() *App {
@@ -50,11 +52,12 @@ func NewApp() *App {
 		FirebaseRepo: firebaseRepository,
 	})
 
-	appService := newAppService(appClient, appRepository, authService)
+	appService := service.NewAppService()
 
 	return &App{
-		Client:     appClient,
-		Repository: appRepository,
-		Service:    appService,
+		Client:      appClient,
+		Repository:  appRepository,
+		Service:     appService,
+		AuthService: authService,
 	}
 }

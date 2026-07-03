@@ -11,16 +11,21 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/WillieBam/support_copilot/backend/app"
+	"github.com/WillieBam/support_copilot/backend/internal/interfaces"
+	"github.com/WillieBam/support_copilot/backend/types"
 	"github.com/labstack/echo/v5"
 )
 
 type Handler struct {
-	apps *app.AppService
+	apps        interfaces.IAppService
+	authService interfaces.IAuthService
 }
 
-func NewHandler(a *app.AppService) *Handler {
-	return &Handler{apps: a}
+func NewHandler(a interfaces.IAppService, authService interfaces.IAuthService) *Handler {
+	return &Handler{
+		apps:        a,
+		authService: authService,
+	}
 }
 
 type queryRequest struct {
@@ -51,7 +56,7 @@ func (h *Handler) TokenExchangeHandler(c *echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Missing firebase request"})
 	}
 
-	verified, claims, err := h.apps.AuthService.ExchangeToken(c.Request().Context(), req.FirebaseToken)
+	verified, claims, err := h.authService.ExchangeToken(c.Request().Context(), req.FirebaseToken)
 	if err != nil {
 		if err.Error() == "mfa_required" {
 			return c.JSON(http.StatusForbidden, map[string]string{
@@ -136,7 +141,7 @@ func (h *Handler) Query(c *echo.Context) error {
 	}
 	flusher.Flush()
 
-	streamChan := make(chan app.StreamEvent)
+	streamChan := make(chan types.StreamEvent)
 	errorChan := make(chan error, 1)
 
 	go func() {
@@ -161,7 +166,7 @@ func (h *Handler) Query(c *echo.Context) error {
 
 		case err := <-errorChan:
 			slog.Error("[STREAM ERROR]: query stream failed", "err", err)
-			errEvent := app.StreamEvent{
+			errEvent := types.StreamEvent{
 				Type: "text",
 				// always use fmt.Sprintf to build json
 				Content: fmt.Sprintf("\n\n**Error** %s", err.Error()),
