@@ -1,6 +1,7 @@
 package endpoint
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"log/slog"
@@ -8,7 +9,6 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/WillieBam/support_copilot/backend/app"
@@ -124,65 +124,62 @@ func (h *Handler) Query(c *echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "input is required"})
 	}
 
-	// route query into service
-	result, err := h.apps.Query(c.Request().Context(), req.Input)
-	if err != nil {
-		errMsg := err.Error()
-		slog.Error("query failed", "err", err)
-
-		if strings.Contains(errMsg, "API error (429)") || strings.Contains(errMsg, "RESOURCE_EXHAUSTED") {
-			if retryAfter := extractRetryAfterSeconds(errMsg); retryAfter > 0 {
-				c.Response().Header().Set(echo.HeaderRetryAfter, strconv.Itoa(retryAfter))
-			}
-
-			return c.JSON(http.StatusTooManyRequests, map[string]string{
-				"error": "The model provider is rate limited. Please retry shortly.",
-			})
-		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to process query"})
-	}
-
-	return c.JSON(http.StatusOK, queryResponse{Output: result})
-}
-
-func (h *Handler) PoCChatHandler(c *echo.Context) error {
 	resp := c.Response()
-
 	resp.Header().Set("Content-Type", "text/event-stream")
 	resp.Header().Set("Cache-Control", "no-cache")
 	resp.Header().Set("Connection", "keep-alive")
-
 	resp.WriteHeader(http.StatusOK)
 
 	flusher, ok := resp.(http.Flusher)
 	if !ok {
-		return c.String(http.StatusInternalServerError, "Streaming unsupported")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Streaming unsupported"})
+	}
+	flusher.Flush()
+
+	streamChan := make(chan app.StreamEvent)
+	errorChan := make(chan error, 1)
+
+	go func() {
+		// Pass the channel into the service so it can push events!
+		err := h.apps.QueryStream(c.Request().Context(), req.Input, streamChan)
+		if err != nil {
+			errorChan <- err
+		}
+		// Always close the channel when the service is done
+		close(streamChan)
+	}()
+
+	for {
+		select {
+		case event, ok := <-streamChan:
+			if !ok {
+				return nil
+			}
+			eventJSON, _ := json.Marshal(event)
+			fmt.Fprintf(resp, "data: %s\n\n", eventJSON)
+			flusher.Flush()
+
+		case err := <-errorChan:
+			slog.Error("[STREAM ERROR]: query stream failed", "err", err)
+			errEvent := app.StreamEvent{
+				Type: "text",
+				// always use fmt.Sprintf to build json
+				Content: fmt.Sprintf("\n\n**Error** %s", err.Error()),
+			}
+			// always marshal with json.Marshal
+			eventJSON, _ := json.Marshal(errEvent)
+
+			fmt.Fprintf(resp, "data: %s\n\n", eventJSON)
+			flusher.Flush()
+			return nil
+
+		case <-c.Request().Context().Done():
+			log.Println("[STREAM]: Client Disconnected (prompt edited or stopped). Aborting stream gracefully.")
+			return nil
+
+		}
 	}
 
-	flusher.Flush()
-
-	// mock streaming sequence for PoC of SSE and also reasoning steps of LLM
-	reasoningMsg1 := `{"type": "reasoning", "content": "I am analyzing the incoming alert..."}`
-	fmt.Fprintf(resp, "data: %s\n\n", reasoningMsg1)
-	flusher.Flush()
-	time.Sleep(1 * time.Second) // fake the delay time so can see it in ui
-
-	reasoningMsg2 := `{"type": "reasoning", "content": "Calling MCP Tool: validate_alert()..."}`
-	fmt.Fprintf(resp, "data: %s\n\n", reasoningMsg2)
-	flusher.Flush()
-	time.Sleep(2 * time.Second) // fake the delay time so can see it in ui
-
-	// simulatellm streaming final text chuncks
-	textChunk1 := `{"type": "text", "content": "The mock tool returned the data. "}`
-	fmt.Fprintf(resp, "data: %s\n\n", textChunk1)
-	flusher.Flush()
-	time.Sleep(500 * time.Millisecond)
-
-	textChunk2 := `{"type": "text", "content": "\n\n**Root Cause:** yas SSE work until this last message! "}`
-	fmt.Fprintf(resp, "data: %s\n\n", textChunk2)
-	flusher.Flush()
-
-	return nil
 }
 
 func extractRetryAfterSeconds(msg string) int {
