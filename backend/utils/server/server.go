@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"net/http"
+	"time"
 
 	"github.com/labstack/echo/v5"
 )
@@ -25,9 +27,15 @@ func (s *Server) Start(ctx context.Context, setup func(*echo.Echo)) error {
 	setup(s.Echo)
 
 	sc := echo.StartConfig{
-		Address:       ":" + s.config.Port(),
-		HideBanner:    true,
+		Address:         ":" + s.config.Port(),
+		HideBanner:      true,
 		GracefulTimeout: s.config.GetShutdownTimeOutDuration(),
+		BeforeServeFunc: func(s *http.Server) error {
+			s.WriteTimeout = 0
+			s.ReadTimeout = 5 * time.Minute
+			s.IdleTimeout = 120 * time.Second
+			return nil
+		},
 	}
 
 	return sc.Start(ctx, s.Echo)

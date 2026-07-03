@@ -45,7 +45,6 @@ func supportCopilotExec(cmd *cobra.Command, args []string) {
 
 		g := e.Group("/query")
 		g.Use(middlewares.AuthMiddleware(a.Service.AuthService))
-		e.POST("/poc/chat", h.PoCChatHandler)
 		g.POST("/chat", h.Query)
 	}); err != nil {
 		slog.Error("server gave up", "err", err)
