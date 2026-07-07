@@ -179,7 +179,7 @@ export function useFirebaseTotpAuth() {
       if (result.type === 'totp-required') {
         setTotpResolver(result.resolver)
         setTotpHint(result.hint)
-        setAuthStatus('TOTP required. Enter your authenticator code to continue.')
+        setAuthStatus('Enter your 6-digit TOTP to continue.')
         return
       }
 
