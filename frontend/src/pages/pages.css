@@ -1,0 +1,319 @@
+@reference "tailwindcss";
+/* @import "tailwindcss"; */
+/* ==========================================================================
+   Common & Shared Layout Styles
+   ========================================================================== */
+
+.login-page-container,
+.register-page-container,
+.setup-page-container,
+.totp-page-container {
+  @apply min-h-screen bg-black text-white flex flex-col justify-center items-center font-sans px-4;
+}
+
+.login-card,
+.register-card,
+.setup-card,
+.totp-card {
+  @apply w-full max-w-110 p-8 border border-neutral-800 bg-neutral-950/60 backdrop-blur-xl rounded-[20px] flex flex-col gap-6 shadow-2xl relative overflow-hidden;
+}
+
+.login-glow-emerald,
+.register-glow-emerald,
+.setup-glow-emerald,
+.totp-glow-emerald {
+  @apply absolute -top-20 -left-20 w-48 h-48 bg-emerald-500/10 rounded-full blur-[100px];
+}
+
+.login-glow-orange,
+.register-glow-orange,
+.setup-glow-orange,
+.totp-glow-orange {
+  @apply absolute -bottom-20 -right-20 w-48 h-48 bg-orange-500/10 rounded-full blur-[100px];
+}
+
+.login-header,
+.register-header,
+.setup-header,
+.totp-header {
+  @apply flex flex-col gap-2 text-center relative z-10;
+}
+
+.login-header-simple,
+.register-header,
+.setup-header,
+.totp-header {
+  @apply flex flex-col gap-1 text-center relative z-10;
+}
+
+.login-eyebrow,
+.register-eyebrow,
+.setup-eyebrow,
+.totp-eyebrow {
+  @apply text-[11px] font-bold tracking-[0.2em] text-emerald-500 uppercase;
+}
+
+.login-title,
+.register-title,
+.setup-title,
+.totp-title {
+  @apply text-2xl font-bold tracking-tight mt-1;
+}
+
+.login-desc {
+  @apply text-sm text-neutral-400 mt-2;
+}
+
+.login-subdesc {
+  @apply text-xs text-neutral-500 mt-1;
+}
+
+/* ==========================================================================
+   LoginPage Specific Styles
+   ========================================================================== */
+
+.login-actions {
+  @apply flex flex-col gap-3 relative z-10;
+}
+
+.login-btn-emerald {
+  @apply w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 rounded-[20px] transition duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-center text-sm;
+}
+
+.login-btn-outline {
+  @apply w-full bg-transparent border border-neutral-800 hover:bg-neutral-900 text-neutral-300 font-medium py-3 rounded-[20px] transition duration-200 cursor-pointer disabled:opacity-50 text-sm;
+}
+
+.login-btn-danger {
+  @apply w-full bg-transparent border border-neutral-800 hover:bg-neutral-900 text-red-400 font-medium py-3 rounded-[20px] transition duration-200 cursor-pointer disabled:opacity-50 text-sm;
+}
+
+.login-btn-submit {
+  @apply bg-transparent border border-neutral-800 hover:bg-neutral-900 hover:border-neutral-700 text-white font-medium px-6 py-2.5 rounded-[20px] transition cursor-pointer disabled:opacity-50 text-sm;
+}
+
+.login-form {
+  @apply flex flex-col gap-4 relative z-10;
+}
+
+.login-form-group {
+  @apply flex flex-col gap-1.5;
+}
+
+.login-label {
+  @apply text-xs font-semibold text-neutral-400 tracking-wide px-1;
+}
+
+.login-input {
+  @apply w-full bg-neutral-900 border border-neutral-800 text-white rounded-[20px] px-4 py-3 text-sm focus:outline-none focus:border-neutral-700 focus:ring-1 focus:ring-neutral-700 transition placeholder-neutral-500 disabled:opacity-50;
+}
+
+.login-input-error {
+  @apply text-red-500 text-xs mt-1 px-1;
+}
+
+.login-submit-row {
+  @apply flex justify-end mt-2;
+}
+
+.login-error {
+  @apply text-red-500 text-xs text-center z-10;
+}
+
+.login-status {
+  @apply text-neutral-400 text-xs text-center z-10;
+}
+
+.login-footer {
+  @apply text-center text-sm text-neutral-400 border-t border-neutral-900 pt-4 mt-2 relative z-10;
+}
+
+.login-link {
+  @apply text-white hover:underline font-medium;
+}
+
+/* ==========================================================================
+   RegisterPage Specific Styles
+   ========================================================================== */
+
+.register-form {
+  @apply flex flex-col gap-4 relative z-10;
+}
+
+.register-form-group {
+  @apply flex flex-col gap-1.5;
+}
+
+.register-label {
+  @apply text-xs font-semibold text-neutral-400 tracking-wide uppercase px-1;
+}
+
+.register-input {
+  @apply w-full bg-neutral-900 border border-neutral-800 text-white rounded-[20px] px-4 py-3 text-sm focus:outline-none focus:border-neutral-700 focus:ring-1 focus:ring-neutral-700 transition placeholder-neutral-500 disabled:opacity-50;
+}
+
+.register-input-error {
+  @apply text-red-500 text-xs mt-1 px-1;
+}
+
+.register-submit-row {
+  @apply flex justify-end mt-2;
+}
+
+.register-btn-submit {
+  @apply bg-transparent border border-neutral-800 hover:bg-neutral-900 hover:border-neutral-700 text-white font-medium px-6 py-2.5 rounded-[20px] transition cursor-pointer disabled:opacity-50 text-sm;
+}
+
+.register-error {
+  @apply text-red-500 text-xs text-center z-10;
+}
+
+.register-status {
+  @apply text-neutral-400 text-xs text-center z-10;
+}
+
+.register-footer {
+  @apply text-center text-sm text-neutral-400 border-t border-neutral-900 pt-4 mt-2 relative z-10;
+}
+
+.register-link {
+  @apply text-white hover:underline font-medium;
+}
+
+/* ==========================================================================
+   SetupTotp Specific Styles
+   ========================================================================== */
+
+.setup-body {
+  @apply flex flex-col gap-5 relative z-10 items-center w-full;
+}
+
+.setup-text {
+  @apply text-sm text-neutral-400 text-center;
+}
+
+.setup-qr-container {
+  @apply p-3 bg-white rounded-lg flex items-center justify-center;
+}
+
+.setup-manual-group {
+  @apply w-full flex flex-col gap-2;
+}
+
+.setup-manual-label {
+  @apply text-xs font-semibold text-neutral-500 tracking-wide uppercase px-1;
+}
+
+.setup-manual-input {
+  @apply w-full bg-neutral-900 border border-neutral-800 text-neutral-400 rounded-[20px] px-4 py-2.5 text-xs focus:outline-none;
+}
+
+.setup-form {
+  @apply w-full flex flex-col gap-4;
+}
+
+.setup-form-group {
+  @apply flex flex-col gap-1.5;
+}
+
+.setup-label {
+  @apply text-xs font-semibold text-neutral-400 tracking-wide uppercase px-1;
+}
+
+.setup-input-row {
+  @apply flex items-center gap-3;
+}
+
+.setup-input {
+  @apply flex-1 bg-neutral-900 border border-neutral-800 text-white rounded-[20px] px-4 py-3 text-sm focus:outline-none focus:border-neutral-700 focus:ring-1 focus:ring-neutral-700 transition placeholder-neutral-500 disabled:opacity-50;
+}
+
+.setup-btn-submit {
+  @apply bg-transparent border border-neutral-800 hover:bg-neutral-900 hover:border-neutral-700 text-white font-medium px-6 py-3 rounded-[20px] transition cursor-pointer disabled:opacity-50 text-sm whitespace-nowrap;
+}
+
+.setup-error-msg {
+  @apply text-red-500 text-xs mt-1 px-1;
+}
+
+.setup-initializing-container {
+  @apply flex flex-col gap-4 text-center py-4 relative z-10;
+}
+
+.setup-initializing-text {
+  @apply animate-pulse text-sm text-neutral-400;
+}
+
+.setup-footer-actions {
+  @apply flex flex-col gap-3 relative z-10 w-full;
+}
+
+.setup-error {
+  @apply text-red-500 text-xs text-center;
+}
+
+.setup-status {
+  @apply text-neutral-400 text-xs text-center;
+}
+
+.setup-btn-cancel {
+  @apply w-full bg-transparent border border-neutral-800 hover:bg-neutral-900 text-neutral-400 hover:text-white font-medium py-3 rounded-[20px] transition duration-200 cursor-pointer disabled:opacity-50 text-sm mt-2;
+}
+
+/* ==========================================================================
+   TotpPage Specific Styles
+   ========================================================================== */
+
+.totp-success-banner {
+  @apply bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 p-4 rounded-[20px] text-center text-sm font-semibold relative z-10;
+  animation: totpFadeIn 1.2s ease-out;
+}
+
+@keyframes totpFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.totp-form {
+  @apply flex flex-col gap-4 relative z-10;
+}
+
+.totp-form-group {
+  @apply flex flex-col gap-1.5;
+}
+
+.totp-label {
+  @apply text-xs font-semibold text-neutral-400 tracking-wide uppercase px-1;
+}
+
+.totp-input-row {
+  @apply flex items-center gap-3;
+}
+
+.totp-input {
+  @apply flex-1 bg-neutral-900 border border-neutral-800 text-white rounded-[20px] px-4 py-3 text-sm focus:outline-none focus:border-neutral-700 focus:ring-1 focus:ring-neutral-700 transition placeholder-neutral-500 disabled:opacity-50;
+}
+
+.totp-btn-verify {
+  @apply bg-transparent border border-neutral-800 hover:bg-neutral-900 hover:border-neutral-700 text-white font-medium px-6 py-3 rounded-[20px] transition cursor-pointer disabled:opacity-50 text-sm whitespace-nowrap;
+}
+
+.totp-error {
+  @apply text-red-500 text-xs mt-1 px-1;
+}
+
+.totp-footer-actions {
+  @apply flex flex-col gap-3 relative z-10 w-full mt-2;
+}
+
+.totp-status {
+  @apply text-neutral-400 text-xs text-center;
+}
+
+.totp-btn-cancel {
+  @apply w-full bg-transparent border border-neutral-800 hover:bg-neutral-900 text-neutral-400 hover:text-white font-medium py-3 rounded-[20px] transition duration-200 cursor-pointer disabled:opacity-50 text-sm;
+}
