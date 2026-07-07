@@ -18,4 +18,4 @@ bin/
 *.test
 
 # Firebase
-config/serviceAccountKey.json
+*serviceAccountKey*.json

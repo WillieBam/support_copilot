@@ -28,7 +28,7 @@ func supportCopilotExec(cmd *cobra.Command, args []string) {
 	ctx := context.Background()
 
 	a := app.NewApp()
-	h := endpoint.NewHandler(a.Service)
+	h := endpoint.NewHandler(a.Service, a.AuthService)
 
 	s := utilserver.New(config.NewServerConfig("support-copilot"))
 
@@ -39,13 +39,12 @@ func supportCopilotExec(cmd *cobra.Command, args []string) {
 		e.POST("/auth/exchange", h.TokenExchangeHandler)
 
 		apiGroup := e.Group("/api")
-		apiGroup.Use(middlewares.AuthMiddleware(a.Service.AuthService))
+		apiGroup.Use(middlewares.AuthMiddleware(a.AuthService))
 
 		apiGroup.GET("/auth/me", h.Me)
 
 		g := e.Group("/query")
-		g.Use(middlewares.AuthMiddleware(a.Service.AuthService))
-
+		g.Use(middlewares.AuthMiddleware(a.AuthService))
 		g.POST("/chat", h.Query)
 	}); err != nil {
 		slog.Error("server gave up", "err", err)

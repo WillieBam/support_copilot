@@ -3,11 +3,9 @@
 @import "tw-shimmer";
 @import "@fontsource-variable/geist/wght.css";
 
-@tailwind base;
+@import "tailwindcss";
 
 @custom-variant dark (&:is(.dark *));
-@tailwind components;
-@tailwind utilities;
 
 :root {
   --text: #112430;
@@ -15,6 +13,7 @@
   --bg: #f4f2e9;
   --accent: oklch(0.97 0 0);
   --paper: #ffffff;
+  --bg-gradient: linear-gradient(140deg, #f4f2e9 0%, #e7f2ec 50%, #fff8ea 100%);
   font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
   line-height: 1.45;
   font-weight: 400;
@@ -51,9 +50,23 @@
   --sidebar-accent: oklch(0.97 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --background: #ffffff;          /* Pure White */
+  --foreground: oklch(0.145 0 0); /* Dark Grey Text */
+  --card: #f9f9f9;                /* Soft Light Grey */
+  --border: oklch(0.922 0 0);     /* Light Border */
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
 }
 
+.dark {
+  --background: #000000;
+  --foreground: oklch(0.985 0 0); 
+  --card: oklch(0.145 0 0);    
+  --border: oklch(1 0 0 / 10%);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.5708 0 0);  
+  --bg-gradient: linear-gradient(140deg, #090e11 0%, #050709 50%, #0c0812 100%);
+}
 * {
   box-sizing: border-box;
 }
@@ -62,9 +75,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  color: var(--text);
-  background:
-    linear-gradient(140deg, #f4f2e9 0%, #e7f2ec 50%, #fff8ea 100%);
+  background: var(--bg-gradient, var(--background));
 }
 
 #root {
@@ -115,7 +126,7 @@ body {
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
+  --background: #000000;
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);

@@ -24,3 +24,14 @@ dev:
 mcp-one:
 	python mcp_server_1/server.py
 
+MOCKERY = $(shell pwd)/backend/bin/mockery
+
+$(MOCKERY):
+	GOBIN=$(shell pwd)/backend/bin go install github.com/vektra/mockery/v2@v2.53.6
+
+generate: $(MOCKERY)
+	$(MOCKERY) --all --dir backend/internal/interfaces --output backend/internal/mocks --outpkg mocks --case camel
+
+
+test:
+	go test -v ./backend/...

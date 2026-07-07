@@ -1,25 +1,31 @@
 package endpoint
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
 	"log/slog"
 	"math"
 	"net/http"
 	"regexp"
 	"strconv"
-	"strings"
 	"time"
 
-	"github.com/WillieBam/support_copilot/backend/app"
+	"github.com/WillieBam/support_copilot/backend/internal/interfaces"
+	"github.com/WillieBam/support_copilot/backend/types"
 	"github.com/labstack/echo/v5"
 )
 
 type Handler struct {
-	apps *app.AppService
+	apps        interfaces.IAppService
+	authService interfaces.IAuthService
 }
 
-func NewHandler(a *app.AppService) *Handler {
-	return &Handler{apps: a}
+func NewHandler(a interfaces.IAppService, authService interfaces.IAuthService) *Handler {
+	return &Handler{
+		apps:        a,
+		authService: authService,
+	}
 }
 
 type queryRequest struct {
@@ -50,7 +56,7 @@ func (h *Handler) TokenExchangeHandler(c *echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Missing firebase request"})
 	}
 
-	verified, claims, err := h.apps.AuthService.ExchangeToken(c.Request().Context(), req.FirebaseToken)
+	verified, claims, err := h.authService.ExchangeToken(c.Request().Context(), req.FirebaseToken)
 	if err != nil {
 		if err.Error() == "mfa_required" {
 			return c.JSON(http.StatusForbidden, map[string]string{
@@ -123,25 +129,62 @@ func (h *Handler) Query(c *echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "input is required"})
 	}
 
-	// route query into service
-	result, err := h.apps.Query(c.Request().Context(), req.Input)
-	if err != nil {
-		errMsg := err.Error()
-		slog.Error("query failed", "err", err)
+	resp := c.Response()
+	resp.Header().Set("Content-Type", "text/event-stream")
+	resp.Header().Set("Cache-Control", "no-cache")
+	resp.Header().Set("Connection", "keep-alive")
+	resp.WriteHeader(http.StatusOK)
 
-		if strings.Contains(errMsg, "API error (429)") || strings.Contains(errMsg, "RESOURCE_EXHAUSTED") {
-			if retryAfter := extractRetryAfterSeconds(errMsg); retryAfter > 0 {
-				c.Response().Header().Set(echo.HeaderRetryAfter, strconv.Itoa(retryAfter))
-			}
+	flusher, ok := resp.(http.Flusher)
+	if !ok {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Streaming unsupported"})
+	}
+	flusher.Flush()
 
-			return c.JSON(http.StatusTooManyRequests, map[string]string{
-				"error": "The model provider is rate limited. Please retry shortly.",
-			})
+	streamChan := make(chan types.StreamEvent)
+	errorChan := make(chan error, 1)
+
+	go func() {
+		// Pass the channel into the service so it can push events!
+		err := h.apps.QueryStream(c.Request().Context(), req.Input, streamChan)
+		if err != nil {
+			errorChan <- err
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to process query"})
+		// Always close the channel when the service is done
+		close(streamChan)
+	}()
+
+	for {
+		select {
+		case event, ok := <-streamChan:
+			if !ok {
+				return nil
+			}
+			eventJSON, _ := json.Marshal(event)
+			fmt.Fprintf(resp, "data: %s\n\n", eventJSON)
+			flusher.Flush()
+
+		case err := <-errorChan:
+			slog.Error("[STREAM ERROR]: query stream failed", "err", err)
+			errEvent := types.StreamEvent{
+				Type: "text",
+				// always use fmt.Sprintf to build json
+				Content: fmt.Sprintf("\n\n**Error** %s", err.Error()),
+			}
+			// always marshal with json.Marshal
+			eventJSON, _ := json.Marshal(errEvent)
+
+			fmt.Fprintf(resp, "data: %s\n\n", eventJSON)
+			flusher.Flush()
+			return nil
+
+		case <-c.Request().Context().Done():
+			log.Println("[STREAM]: Client Disconnected (prompt edited or stopped). Aborting stream gracefully.")
+			return nil
+
+		}
 	}
 
-	return c.JSON(http.StatusOK, queryResponse{Output: result})
 }
 
 func extractRetryAfterSeconds(msg string) int {
