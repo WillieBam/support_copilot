@@ -1,4 +1,4 @@
-@reference "tailwindcss";
+@reference "../index.css";
 /* @import "tailwindcss"; */
 /* ==========================================================================
    Common & Shared Layout Styles
@@ -8,14 +8,14 @@
 .register-page-container,
 .setup-page-container,
 .totp-page-container {
-  @apply min-h-screen bg-black text-white flex flex-col justify-center items-center font-sans px-4;
+  @apply min-h-screen bg-transparent text-foreground flex flex-col justify-center items-center font-sans px-4 transition-colors duration-300;
 }
 
 .login-card,
 .register-card,
 .setup-card,
 .totp-card {
-  @apply w-full max-w-110 p-8 border border-neutral-800 bg-neutral-950/60 backdrop-blur-xl rounded-[20px] flex flex-col gap-6 shadow-2xl relative overflow-hidden;
+  @apply w-full max-w-110 p-8 border border-border bg-card/60 backdrop-blur-xl rounded-[20px] flex flex-col gap-6 shadow-2xl relative overflow-hidden transition-colors duration-300;
 }
 
 .login-glow-emerald,
@@ -77,19 +77,19 @@
 }
 
 .login-btn-emerald {
-  @apply w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 rounded-[20px] transition duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-center text-sm;
+  @apply w-full bg-emerald-600 hover:bg-emerald-500 text-foreground font-semibold py-3 rounded-[20px] transition duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-center text-sm;
 }
 
 .login-btn-outline {
-  @apply w-full bg-transparent border border-neutral-800 hover:bg-neutral-900 text-neutral-300 font-medium py-3 rounded-[20px] transition duration-200 cursor-pointer disabled:opacity-50 text-sm;
+  @apply w-full bg-transparent border border-border hover:bg-muted text-muted-foreground font-medium py-3 rounded-[20px] transition duration-200 cursor-pointer disabled:opacity-50 text-sm;
 }
 
 .login-btn-danger {
-  @apply w-full bg-transparent border border-neutral-800 hover:bg-neutral-900 text-red-400 font-medium py-3 rounded-[20px] transition duration-200 cursor-pointer disabled:opacity-50 text-sm;
+  @apply w-full bg-transparent border border-border hover:bg-muted text-red-400 font-medium py-3 rounded-[20px] transition duration-200 cursor-pointer disabled:opacity-50 text-sm;
 }
 
 .login-btn-submit {
-  @apply bg-transparent border border-neutral-800 hover:bg-neutral-900 hover:border-neutral-700 text-white font-medium px-6 py-2.5 rounded-[20px] transition cursor-pointer disabled:opacity-50 text-sm;
+  @apply bg-transparent border border-border hover:bg-muted hover:border-border text-foreground font-medium px-6 py-2.5 rounded-[20px] transition cursor-pointer disabled:opacity-50 text-sm;
 }
 
 .login-form {
@@ -101,11 +101,11 @@
 }
 
 .login-label {
-  @apply text-xs font-semibold text-neutral-400 tracking-wide px-1;
+  @apply text-xs font-semibold text-muted-foreground tracking-wide px-1;
 }
 
 .login-input {
-  @apply w-full bg-neutral-900 border border-neutral-800 text-white rounded-[20px] px-4 py-3 text-sm focus:outline-none focus:border-neutral-700 focus:ring-1 focus:ring-neutral-700 transition placeholder-neutral-500 disabled:opacity-50;
+  @apply w-full bg-muted/50 border border-border text-foreground rounded-[20px] px-4 py-3 text-sm focus:outline-none focus:border-ring focus:ring-1 focus:ring-ring transition placeholder-muted-foreground/50 disabled:opacity-50;
 }
 
 .login-input-error {
@@ -125,11 +125,11 @@
 }
 
 .login-footer {
-  @apply text-center text-sm text-neutral-400 border-t border-neutral-900 pt-4 mt-2 relative z-10;
+  @apply text-center text-sm text-muted-foreground border-t border-border pt-4 mt-2 relative z-10;
 }
 
 .login-link {
-  @apply text-white hover:underline font-medium;
+  @apply text-foreground hover:underline font-medium;
 }
 
 /* ==========================================================================
@@ -145,11 +145,11 @@
 }
 
 .register-label {
-  @apply text-xs font-semibold text-neutral-400 tracking-wide uppercase px-1;
+  @apply text-xs font-semibold text-muted-foreground tracking-wide uppercase px-1;
 }
 
 .register-input {
-  @apply w-full bg-neutral-900 border border-neutral-800 text-white rounded-[20px] px-4 py-3 text-sm focus:outline-none focus:border-neutral-700 focus:ring-1 focus:ring-neutral-700 transition placeholder-neutral-500 disabled:opacity-50;
+  @apply w-full bg-muted/50 border border-border text-foreground rounded-[20px] px-4 py-3 text-sm focus:outline-none focus:border-ring focus:ring-1 focus:ring-ring transition placeholder-muted-foreground/50 disabled:opacity-50;
 }
 
 .register-input-error {
@@ -161,7 +161,7 @@
 }
 
 .register-btn-submit {
-  @apply bg-transparent border border-neutral-800 hover:bg-neutral-900 hover:border-neutral-700 text-white font-medium px-6 py-2.5 rounded-[20px] transition cursor-pointer disabled:opacity-50 text-sm;
+  @apply bg-transparent border border-border hover:bg-muted hover:border-border text-foreground font-medium px-6 py-2.5 rounded-[20px] transition cursor-pointer disabled:opacity-50 text-sm;
 }
 
 .register-error {
@@ -173,11 +173,11 @@
 }
 
 .register-footer {
-  @apply text-center text-sm text-neutral-400 border-t border-neutral-900 pt-4 mt-2 relative z-10;
+  @apply text-center text-sm text-muted-foreground border-t border-border pt-4 mt-2 relative z-10;
 }
 
 .register-link {
-  @apply text-white hover:underline font-medium;
+  @apply text-foreground hover:underline font-medium;
 }
 
 /* ==========================================================================
@@ -201,11 +201,11 @@
 }
 
 .setup-manual-label {
-  @apply text-xs font-semibold text-neutral-500 tracking-wide uppercase px-1;
+  @apply text-xs font-semibold text-muted-foreground tracking-wide uppercase px-1;
 }
 
 .setup-manual-input {
-  @apply w-full bg-neutral-900 border border-neutral-800 text-neutral-400 rounded-[20px] px-4 py-2.5 text-xs focus:outline-none;
+  @apply w-full bg-muted/50 border border-border text-muted-foreground rounded-[20px] px-4 py-2.5 text-xs focus:outline-none;
 }
 
 .setup-form {
@@ -217,7 +217,7 @@
 }
 
 .setup-label {
-  @apply text-xs font-semibold text-neutral-400 tracking-wide uppercase px-1;
+  @apply text-xs font-semibold text-muted-foreground tracking-wide uppercase px-1;
 }
 
 .setup-input-row {
@@ -225,11 +225,11 @@
 }
 
 .setup-input {
-  @apply flex-1 bg-neutral-900 border border-neutral-800 text-white rounded-[20px] px-4 py-3 text-sm focus:outline-none focus:border-neutral-700 focus:ring-1 focus:ring-neutral-700 transition placeholder-neutral-500 disabled:opacity-50;
+  @apply flex-1 bg-muted/50 border border-border text-foreground rounded-[20px] px-4 py-3 text-sm focus:outline-none focus:border-ring focus:ring-1 focus:ring-ring transition placeholder-muted-foreground/50 disabled:opacity-50;
 }
 
 .setup-btn-submit {
-  @apply bg-transparent border border-neutral-800 hover:bg-neutral-900 hover:border-neutral-700 text-white font-medium px-6 py-3 rounded-[20px] transition cursor-pointer disabled:opacity-50 text-sm whitespace-nowrap;
+  @apply bg-transparent border border-border hover:bg-muted hover:border-border text-foreground font-medium px-6 py-3 rounded-[20px] transition cursor-pointer disabled:opacity-50 text-sm whitespace-nowrap;
 }
 
 .setup-error-msg {
@@ -257,7 +257,7 @@
 }
 
 .setup-btn-cancel {
-  @apply w-full bg-transparent border border-neutral-800 hover:bg-neutral-900 text-neutral-400 hover:text-white font-medium py-3 rounded-[20px] transition duration-200 cursor-pointer disabled:opacity-50 text-sm mt-2;
+  @apply w-full bg-transparent border border-border hover:bg-muted text-muted-foreground hover:text-foreground font-medium py-3 rounded-[20px] transition duration-200 cursor-pointer disabled:opacity-50 text-sm mt-2;
 }
 
 /* ==========================================================================
@@ -287,7 +287,7 @@
 }
 
 .totp-label {
-  @apply text-xs font-semibold text-neutral-400 tracking-wide uppercase px-1;
+  @apply text-xs font-semibold text-muted-foreground tracking-wide uppercase px-1;
 }
 
 .totp-input-row {
@@ -295,11 +295,11 @@
 }
 
 .totp-input {
-  @apply flex-1 bg-neutral-900 border border-neutral-800 text-white rounded-[20px] px-4 py-3 text-sm focus:outline-none focus:border-neutral-700 focus:ring-1 focus:ring-neutral-700 transition placeholder-neutral-500 disabled:opacity-50;
+  @apply flex-1 bg-muted/50 border border-border text-foreground rounded-[20px] px-4 py-3 text-sm focus:outline-none focus:border-ring focus:ring-1 focus:ring-ring transition placeholder-muted-foreground/50 disabled:opacity-50;
 }
 
 .totp-btn-verify {
-  @apply bg-transparent border border-neutral-800 hover:bg-neutral-900 hover:border-neutral-700 text-white font-medium px-6 py-3 rounded-[20px] transition cursor-pointer disabled:opacity-50 text-sm whitespace-nowrap;
+  @apply bg-transparent border border-border hover:bg-muted hover:border-border text-foreground font-medium px-6 py-3 rounded-[20px] transition cursor-pointer disabled:opacity-50 text-sm whitespace-nowrap;
 }
 
 .totp-error {
@@ -315,5 +315,5 @@
 }
 
 .totp-btn-cancel {
-  @apply w-full bg-transparent border border-neutral-800 hover:bg-neutral-900 text-neutral-400 hover:text-white font-medium py-3 rounded-[20px] transition duration-200 cursor-pointer disabled:opacity-50 text-sm;
+  @apply w-full bg-transparent border border-border hover:bg-muted text-muted-foreground hover:text-foreground font-medium py-3 rounded-[20px] transition duration-200 cursor-pointer disabled:opacity-50 text-sm;
 }
