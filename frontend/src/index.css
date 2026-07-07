@@ -3,11 +3,9 @@
 @import "tw-shimmer";
 @import "@fontsource-variable/geist/wght.css";
 
-@tailwind base;
+@import "tailwindcss";
 
 @custom-variant dark (&:is(.dark *));
-@tailwind components;
-@tailwind utilities;
 
 :root {
   --text: #112430;
@@ -51,7 +49,7 @@
   --sidebar-accent: oklch(0.97 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --background: #000000;
 }
 
 * {
@@ -115,7 +113,7 @@ body {
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
+  --background: #000000;
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);

@@ -32,18 +32,12 @@ function GlobalHeader({ auth }: { auth: AuthState }) {
     <header className="flex w-full h-[73px] items-center justify-between px-6 bg-black border-b border-neutral-800 shrink-0">
       <div className="flex items-center gap-3">
         <Brain className="w-6 h-6 text-emerald-500" />
-        <span className="text-white font-bold text-lg tracking-tight">Support Copilot</span>
+        <span className=" text-white font-bold text-lg tracking-tight">Support Copilot</span>
       </div>
       <div className="flex items-center gap-4">
         {auth.isSignedIn ? (
           <>
             <div className="relative">
-              <select className="appearance-none bg-neutral-900 border border-neutral-800 rounded-[20px] text-white px-4 py-1.5 pr-8 outline-none text-sm cursor-pointer hover:bg-neutral-800 transition-colors">
-                <option>Personal Workspace</option>
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-neutral-400">
-                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
-              </div>
             </div>
             <button className="flex items-center gap-2 bg-transparent border border-neutral-800 rounded-[20px] px-4 py-1.5 text-white hover:bg-neutral-900 transition-colors text-sm">
               <FileText className="w-4 h-4 text-neutral-400" /> Manage Instruction
@@ -113,7 +107,7 @@ const displayName = email ? email.split('@')[0] : '';
           <div className="absolute -top-40 -left-40 w-96 h-96 bg-emerald-500/5 rounded-[20px] blur-[120px] pointer-events-none" />
           <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-orange-500/5 rounded-[20px] blur-[120px] pointer-events-none" />
 
-          <div className="flex-1 flex flex-col pt-14 relative z-10 w-full overflow-hidden">
+          <div className="flex-1 flex bg-background flex-col pt-14 relative z-10 w-full overflow-hidden">
             <AssistantRuntimeProvider runtime={runtime}>
               <Thread />
             </AssistantRuntimeProvider>

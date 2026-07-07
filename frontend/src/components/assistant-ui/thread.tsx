@@ -60,10 +60,9 @@ export const Thread: FC = () => {
       <ThreadPrimitive.Viewport
         turnAnchor="bottom"
         data-slot="aui_thread-viewport"
-        // topAnchorMessageClamp={{ tallerThan: "12em", visibleHeight: "8em" }}
-        className="relative flex flex-1 flex-col overflow-x-auto overflow-y-scroll"
+        className="relative bg-background flex flex-1 flex-col overflow-x-auto overflow-y-scroll"
       >
-        <div className="mx-auto flex w-full max-w-(--thread-max-width) flex-1 flex-col px-4 pt-4">
+        <div className="mx-auto flex bg-background w-full max-w-(--thread-max-width) flex-1 flex-col px-4 pt-4">
           <AuiIf condition={(s) => s.thread.isEmpty}>
             <ThreadWelcome />
           </AuiIf>
@@ -160,7 +159,7 @@ const Composer: FC = () => {
       <ComposerPrimitive.AttachmentDropzone asChild>
         <div
           data-slot="aui_composer-shell"
-          className="flex w-full flex-col gap-2 rounded-(--composer-radius) border bg-background p-(--composer-padding) transition-shadow focus-within:border-ring/75 focus-within:ring-2 focus-within:ring-ring/20 data-[dragging=true]:border-ring data-[dragging=true]:border-dashed data-[dragging=true]:bg-accent/50"
+          className="flex w-full flex-col gap-2 rounded-(--composer-radius) border bg-muted/50 p-(--composer-padding) transition-shadow focus-within:border-ring/75 focus-within:ring-2 focus-within:ring-ring/20 data-[dragging=true]:border-ring data-[dragging=true]:border-dashed data-[dragging=true]:bg-accent/50"
         >
           <ComposerAttachments />
           <ComposerPrimitive.Input
