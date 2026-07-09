@@ -5,10 +5,7 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
-	"math"
 	"net/http"
-	"regexp"
-	"strconv"
 	"time"
 
 	"github.com/WillieBam/support_copilot/backend/internal/interfaces"
@@ -185,24 +182,4 @@ func (h *Handler) Query(c *echo.Context) error {
 		}
 	}
 
-}
-
-func extractRetryAfterSeconds(msg string) int {
-	retryDelayJSON := regexp.MustCompile(`retryDelay"\s*:\s*"(\d+)s"`)
-	if m := retryDelayJSON.FindStringSubmatch(msg); len(m) == 2 {
-		v, err := strconv.Atoi(m[1])
-		if err == nil && v > 0 {
-			return v
-		}
-	}
-
-	retryDelayText := regexp.MustCompile(`Please retry in ([0-9]+(?:\.[0-9]+)?)s`)
-	if m := retryDelayText.FindStringSubmatch(msg); len(m) == 2 {
-		v, err := strconv.ParseFloat(m[1], 64)
-		if err == nil && v > 0 {
-			return int(math.Ceil(v))
-		}
-	}
-
-	return 0
 }
