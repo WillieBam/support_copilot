@@ -5,15 +5,15 @@ import (
 )
 
 type AppRepository struct {
-	Client *appClient
-	User   interfaces.IUserRepository
-	Alert  interfaces.IAlertRepository
+	User  interfaces.IUserRepository
+	Alert interfaces.IAlertRepository
+	LLM   interfaces.IOllamaClient
 }
 
-func NewAppRepository(client *appClient, user interfaces.IUserRepository, alert interfaces.IAlertRepository) *AppRepository {
+func NewAppRepository(ollama interfaces.IOllamaClient, user interfaces.IUserRepository, alert interfaces.IAlertRepository) *AppRepository {
 	return &AppRepository{
-		Client: client,
-		User:   user,
-		Alert:  alert,
+		User:  user,
+		Alert: alert,
+		LLM:   ollama,
 	}
 }

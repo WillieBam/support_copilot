@@ -3,16 +3,12 @@ package service_test
 import (
 	"context"
 	"errors"
-	"net/http"
-	"net/http/httptest"
-	"time"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/mock"
-	"github.com/google/uuid"
 
-	"github.com/WillieBam/support_copilot/backend/app/config"
 	"github.com/WillieBam/support_copilot/backend/internal/interfaces"
 	"github.com/WillieBam/support_copilot/backend/internal/mocks"
 	"github.com/WillieBam/support_copilot/backend/internal/service"
@@ -23,32 +19,29 @@ var _ = Describe("AppService (Streaming & Alerts)", func() {
 	var (
 		appSvc        interfaces.IAppService
 		mockAlertRepo *mocks.IAlertRepository
+		mockOllama    *mocks.IOllamaClient
 		ctx           context.Context
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
 		mockAlertRepo = &mocks.IAlertRepository{}
-		appSvc = service.NewAppService(mockAlertRepo)
+		mockOllama = &mocks.IOllamaClient{}
+
+		appSvc = service.NewAppService(mockAlertRepo, mockOllama)
 	})
 
 	Context("QueryStream", func() {
 		It("should connect to Ollama server and stream token events correctly", func() {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				Expect(r.URL.Path).To(Equal("/api/chat"))
-				Expect(r.Method).To(Equal(http.MethodPost))
-
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusOK)
-
-				// Write mock streaming chunks from Ollama
-				_, _ = w.Write([]byte(`{"message":{"content":"Hello"},"done":false}`))
-				_, _ = w.Write([]byte(`{"message":{"content":" world!"},"done":true}`))
-			}))
-			defer server.Close()
-
-			config.Get().Ollama.BaseURL = server.URL
-			config.Get().Ollama.Model = "llama3.2"
+			mockOllama.On("QueryStream", mock.Anything, "hello test", mock.Anything).
+				Return(nil).
+				Run(func(args mock.Arguments) {
+					streamChan := args.Get(2).(chan<- types.StreamEvent)
+					streamChan <- types.StreamEvent{Type: "reasoning", Content: "Analyzing user prompt...\n "}
+					streamChan <- types.StreamEvent{Type: "reasoning", Content: "Connecting to Llama 3.2...\n"}
+					streamChan <- types.StreamEvent{Type: "text", Content: "Hello"}
+					streamChan <- types.StreamEvent{Type: "text", Content: " world!"}
+				})
 
 			streamChan := make(chan types.StreamEvent, 10)
 
@@ -72,33 +65,24 @@ var _ = Describe("AppService (Streaming & Alerts)", func() {
 			Expect(events[2].Content).To(Equal("Hello"))
 			Expect(events[3].Type).To(Equal("text"))
 			Expect(events[3].Content).To(Equal(" world!"))
+			mockOllama.AssertExpectations(GinkgoT())
 		})
 
 		It("should return an error if the server returns non-200 status code", func() {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusInternalServerError)
-				_, _ = w.Write([]byte("ollama internal error"))
-			}))
-			defer server.Close()
-
-			config.Get().Ollama.BaseURL = server.URL
+			mockOllama.On("QueryStream", mock.Anything, "hello test", mock.Anything).
+				Return(errors.New("Ollama returned status 500: ollama internal error"))
 
 			streamChan := make(chan types.StreamEvent, 10)
 
 			err := appSvc.QueryStream(ctx, "hello test", streamChan)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("Ollama returned status 500"))
+			mockOllama.AssertExpectations(GinkgoT())
 		})
 
 		It("should return an error if client cancels the context", func() {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				// Wait or write chunk
-				time.Sleep(100 * time.Millisecond)
-				w.WriteHeader(http.StatusOK)
-			}))
-			defer server.Close()
-
-			config.Get().Ollama.BaseURL = server.URL
+			mockOllama.On("QueryStream", mock.Anything, "hello test", mock.Anything).
+				Return(context.Canceled)
 
 			cancelCtx, cancel := context.WithCancel(ctx)
 			cancel() // cancel immediately
@@ -107,6 +91,7 @@ var _ = Describe("AppService (Streaming & Alerts)", func() {
 
 			err := appSvc.QueryStream(cancelCtx, "hello test", streamChan)
 			Expect(err).To(HaveOccurred())
+			mockOllama.AssertExpectations(GinkgoT())
 		})
 	})
 

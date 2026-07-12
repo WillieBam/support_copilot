@@ -7,6 +7,7 @@ import (
 	"github.com/WillieBam/support_copilot/backend/app/config"
 	"github.com/WillieBam/support_copilot/backend/internal/interfaces"
 	firebaseRepo "github.com/WillieBam/support_copilot/backend/internal/repository/firebase"
+	llm "github.com/WillieBam/support_copilot/backend/internal/repository/llm"
 	postgresRepo "github.com/WillieBam/support_copilot/backend/internal/repository/postgres"
 	"github.com/WillieBam/support_copilot/backend/internal/service"
 	gormpostgres "gorm.io/driver/postgres"
@@ -14,7 +15,6 @@ import (
 )
 
 type App struct {
-	Client      *appClient
 	Repository  *AppRepository
 	Service     interfaces.IAppService
 	AuthService interfaces.IAuthService
@@ -36,11 +36,11 @@ func NewApp() *App {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	appClient := newAppClient()
 	userRepo := postgresRepo.NewUserRepository(gormDB)
 	alertRepo := postgresRepo.NewAlertRepository(gormDB)
+	llmClient := llm.NewOllamaClient(cfg)
 
-	appRepository := NewAppRepository(appClient, userRepo, alertRepo)
+	appRepository := NewAppRepository(llmClient, userRepo, alertRepo)
 
 	firebaseRepository, err := firebaseRepo.NewFirebaseRepository(cfg)
 	if err != nil {
@@ -53,10 +53,9 @@ func NewApp() *App {
 		FirebaseRepo: firebaseRepository,
 	})
 
-	appService := service.NewAppService(appRepository.Alert)
+	appService := service.NewAppService(appRepository.Alert, appRepository.LLM)
 
 	return &App{
-		Client:      appClient,
 		Repository:  appRepository,
 		Service:     appService,
 		AuthService: authService,
