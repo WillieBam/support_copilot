@@ -1,9 +1,19 @@
 package app
 
-type appRepository struct {
-	client *appClient
+import (
+	"github.com/WillieBam/support_copilot/backend/internal/interfaces"
+)
+
+type AppRepository struct {
+	User  interfaces.IUserRepository
+	Alert interfaces.IAlertRepository
+	LLM   interfaces.IOllamaClient
 }
 
-func newAppRepository(client *appClient) *appRepository {
-	return &appRepository{client: client}
+func NewAppRepository(ollama interfaces.IOllamaClient, user interfaces.IUserRepository, alert interfaces.IAlertRepository) *AppRepository {
+	return &AppRepository{
+		User:  user,
+		Alert: alert,
+		LLM:   ollama,
+	}
 }

@@ -5,14 +5,13 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
-	"math"
 	"net/http"
-	"regexp"
-	"strconv"
 	"time"
 
 	"github.com/WillieBam/support_copilot/backend/internal/interfaces"
 	"github.com/WillieBam/support_copilot/backend/types"
+	"github.com/WillieBam/support_copilot/backend/types/requests"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 )
 
@@ -32,22 +31,9 @@ type queryRequest struct {
 	Input string `json:"input"`
 }
 
-type queryResponse struct {
-	Output string `json:"output"`
-}
-
-// Define the payload structures
-type TokenExchangeRequest struct {
-	FirebaseToken string `json:"firebase_token"`
-}
-
-type TokenExchangeResponse struct {
-	Token string `json:"token"`
-}
-
 // TokenExchangeHandler converts a validated Firebase token into a JWT session token
 func (h *Handler) TokenExchangeHandler(c *echo.Context) error {
-	var req TokenExchangeRequest
+	var req requests.TokenExchangeRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Missing request payload"})
 	}
@@ -187,22 +173,29 @@ func (h *Handler) Query(c *echo.Context) error {
 
 }
 
-func extractRetryAfterSeconds(msg string) int {
-	retryDelayJSON := regexp.MustCompile(`retryDelay"\s*:\s*"(\d+)s"`)
-	if m := retryDelayJSON.FindStringSubmatch(msg); len(m) == 2 {
-		v, err := strconv.Atoi(m[1])
-		if err == nil && v > 0 {
-			return v
-		}
+func (h *Handler) IngestAlert(c *echo.Context) error {
+	var req requests.AlertIngestRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid alert payload"})
 	}
 
-	retryDelayText := regexp.MustCompile(`Please retry in ([0-9]+(?:\.[0-9]+)?)s`)
-	if m := retryDelayText.FindStringSubmatch(msg); len(m) == 2 {
-		v, err := strconv.ParseFloat(m[1], 64)
-		if err == nil && v > 0 {
-			return int(math.Ceil(v))
-		}
+	// var compactedBuffer bytes.Buffer
+	// if err := json.Compact(&compactedBuffer, req.Metrics); err == nil {
+	// 	req.Metrics = compactedBuffer.Bytes()
+	// }
+
+	if req.IncidentID == uuid.Nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "service name is required"})
 	}
 
-	return 0
+	if req.ServiceName == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "incident id is required"})
+	}
+
+	err := h.apps.IngestAlert(c.Request().Context(), req.IncidentID, req.ServiceName, req.Severity, string(req.Metrics))
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"status": "success"})
 }

@@ -79,7 +79,7 @@ function ChatWorkspace({ auth, runtime }: { auth: AuthState; runtime: ReturnType
       {/* Left Panel Drawer */}
       <aside
         className={`flex flex-col border-r border-border bg-card/40 backdrop-blur-md transition-all duration-300 ease-in-out ${
-          isSidebarOpen ? 'w-[300px]' : 'w-[0px] border-r-0 overflow-hidden opacity-0'
+          isSidebarOpen ? 'w-[300px]' : 'w-0 border-r-0 overflow-hidden opacity-0'
         }`}
       >
         <div className="p-6 border-b border-border flex items-center gap-4 shrink-0 min-w-[300px]">

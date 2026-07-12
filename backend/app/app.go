@@ -7,6 +7,7 @@ import (
 	"github.com/WillieBam/support_copilot/backend/app/config"
 	"github.com/WillieBam/support_copilot/backend/internal/interfaces"
 	firebaseRepo "github.com/WillieBam/support_copilot/backend/internal/repository/firebase"
+	llm "github.com/WillieBam/support_copilot/backend/internal/repository/llm"
 	postgresRepo "github.com/WillieBam/support_copilot/backend/internal/repository/postgres"
 	"github.com/WillieBam/support_copilot/backend/internal/service"
 	gormpostgres "gorm.io/driver/postgres"
@@ -14,8 +15,7 @@ import (
 )
 
 type App struct {
-	Client      *appClient
-	Repository  *appRepository
+	Repository  *AppRepository
 	Service     interfaces.IAppService
 	AuthService interfaces.IAuthService
 }
@@ -36,11 +36,12 @@ func NewApp() *App {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	appClient := newAppClient()
-	appRepository := newAppRepository(appClient)
-
-	// Create internal repositories using the DB connection and configuration
 	userRepo := postgresRepo.NewUserRepository(gormDB)
+	alertRepo := postgresRepo.NewAlertRepository(gormDB)
+	llmClient := llm.NewOllamaClient(cfg)
+
+	appRepository := NewAppRepository(llmClient, userRepo, alertRepo)
+
 	firebaseRepository, err := firebaseRepo.NewFirebaseRepository(cfg)
 	if err != nil {
 		log.Fatalf("Failed to initialize Firebase Repository: %v", err)
@@ -48,14 +49,13 @@ func NewApp() *App {
 
 	// Initialize the Authentication Service
 	authService := service.New(service.AuthServiceParam{
-		UserRepo:     userRepo,
+		UserRepo:     appRepository.User,
 		FirebaseRepo: firebaseRepository,
 	})
 
-	appService := service.NewAppService()
+	appService := service.NewAppService(appRepository.Alert, appRepository.LLM)
 
 	return &App{
-		Client:      appClient,
 		Repository:  appRepository,
 		Service:     appService,
 		AuthService: authService,

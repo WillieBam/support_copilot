@@ -1,4 +1,4 @@
-package service
+package ollama
 
 import (
 	"bytes"
@@ -9,30 +9,49 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/WillieBam/support_copilot/backend/app/config"
+	"github.com/WillieBam/support_copilot/backend/internal/interfaces"
 	"github.com/WillieBam/support_copilot/backend/types"
 )
 
-type AppService struct{}
-
-func NewAppService() *AppService {
-	return &AppService{}
+type ollamaClient struct {
+	httpClient    *http.Client
+	ollamaBaseUrl string
+	ollamaModel   string
 }
 
-// QueryStream connects to the Ollama API to run a query with streaming enabled.
-// It sends progress events and token streams back to the client via streamChan.
-// It returns an error if marshalling the payload, creating the request, or the connection/decoding fails.
-func (s *AppService) QueryStream(ctx context.Context, prompt string, streamChan chan<- types.StreamEvent) error {
+func NewOllamaClient(cfg *config.Config) interfaces.IOllamaClient {
+	baseUrl := strings.TrimRight(cfg.Ollama.BaseURL, "/")
+	if baseUrl == "" {
+		baseUrl = "http://localhost:11434"
+	}
+
+	model := strings.TrimSpace(cfg.Ollama.Model)
+	if model == "" {
+		model = "llama3.2"
+	}
+
+	return &ollamaClient{
+		httpClient:    &http.Client{Timeout: 3 * time.Minute},
+		ollamaBaseUrl: baseUrl,
+		ollamaModel:   model,
+	}
+
+}
+
+func (c *ollamaClient) QueryStream(ctx context.Context, prompt string, streamChan chan<- types.StreamEvent) error {
 	streamChan <- types.StreamEvent{
 		Type:    "reasoning",
 		Content: "Analyzing user prompt...\n ",
 	}
 
-	ollamaURL := config.Get().Ollama.BaseURL + "/api/chat"
+	ollamaURL := c.ollamaBaseUrl + "/api/chat"
 
 	payload := map[string]interface{}{
-		"model":  config.Get().Ollama.Model,
+		"model":  c.ollamaModel,
 		"stream": true,
 		"messages": []map[string]string{
 			{
@@ -59,8 +78,7 @@ func (s *AppService) QueryStream(ctx context.Context, prompt string, streamChan 
 		Content: "Connecting to Llama 3.2...\n",
 	}
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		// check for stream abortion
 		if errors.Is(err, context.Canceled) {
