@@ -38,11 +38,13 @@ func supportCopilotExec(cmd *cobra.Command, args []string) {
 
 		e.POST("/auth/exchange", h.TokenExchangeHandler)
 
+		// '/api' group endpoints
 		apiGroup := e.Group("/api")
 		apiGroup.Use(middlewares.AuthMiddleware(a.AuthService))
-
 		apiGroup.GET("/auth/me", h.Me)
+		apiGroup.GET("/alerts/ingest", h.IngestAlert)
 
+		// '/query' group endpoints
 		g := e.Group("/query")
 		g.Use(middlewares.AuthMiddleware(a.AuthService))
 		g.POST("/chat", h.Query)

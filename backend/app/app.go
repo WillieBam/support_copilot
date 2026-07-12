@@ -15,7 +15,7 @@ import (
 
 type App struct {
 	Client      *appClient
-	Repository  *appRepository
+	Repository  *AppRepository
 	Service     interfaces.IAppService
 	AuthService interfaces.IAuthService
 }
@@ -37,10 +37,11 @@ func NewApp() *App {
 	}
 
 	appClient := newAppClient()
-	appRepository := newAppRepository(appClient)
-
-	// Create internal repositories using the DB connection and configuration
 	userRepo := postgresRepo.NewUserRepository(gormDB)
+	alertRepo := postgresRepo.NewAlertRepository(gormDB)
+
+	appRepository := NewAppRepository(appClient, userRepo, alertRepo)
+
 	firebaseRepository, err := firebaseRepo.NewFirebaseRepository(cfg)
 	if err != nil {
 		log.Fatalf("Failed to initialize Firebase Repository: %v", err)
@@ -48,11 +49,11 @@ func NewApp() *App {
 
 	// Initialize the Authentication Service
 	authService := service.New(service.AuthServiceParam{
-		UserRepo:     userRepo,
+		UserRepo:     appRepository.User,
 		FirebaseRepo: firebaseRepository,
 	})
 
-	appService := service.NewAppService()
+	appService := service.NewAppService(appRepository.Alert)
 
 	return &App{
 		Client:      appClient,

@@ -1,9 +1,19 @@
 package app
 
-type appRepository struct {
-	client *appClient
+import (
+	"github.com/WillieBam/support_copilot/backend/internal/interfaces"
+)
+
+type AppRepository struct {
+	Client *appClient
+	User   interfaces.IUserRepository
+	Alert  interfaces.IAlertRepository
 }
 
-func newAppRepository(client *appClient) *appRepository {
-	return &appRepository{client: client}
+func NewAppRepository(client *appClient, user interfaces.IUserRepository, alert interfaces.IAlertRepository) *AppRepository {
+	return &AppRepository{
+		Client: client,
+		User:   user,
+		Alert:  alert,
+	}
 }

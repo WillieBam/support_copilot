@@ -17,15 +17,16 @@ import (
 	"github.com/WillieBam/support_copilot/backend/internal/endpoint"
 	"github.com/WillieBam/support_copilot/backend/internal/mocks"
 	"github.com/WillieBam/support_copilot/backend/types"
+	"github.com/WillieBam/support_copilot/backend/types/requests"
 	"github.com/labstack/echo/v5"
 )
 
 var _ = Describe("Handler", func() {
 	var (
-		e           *echo.Echo
-		mockAppSvc  *mocks.IAppService
-		mockAuthSvc *mocks.IAuthService
-		h           *endpoint.Handler
+		e            *echo.Echo
+		mockAppSvc   *mocks.IAppService
+		mockAuthSvc  *mocks.IAuthService
+		h            *endpoint.Handler
 	)
 
 	BeforeEach(func() {
@@ -48,7 +49,7 @@ var _ = Describe("Handler", func() {
 		})
 
 		It("should fail if firebase token is empty", func() {
-			body, _ := json.Marshal(endpoint.TokenExchangeRequest{FirebaseToken: ""})
+			body, _ := json.Marshal(requests.TokenExchangeRequest{FirebaseToken: ""})
 			req := httptest.NewRequest(http.MethodPost, "/token-exchange", bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
 			rec := httptest.NewRecorder()
@@ -60,7 +61,7 @@ var _ = Describe("Handler", func() {
 		})
 
 		It("should fail with status 403 when mfa is required", func() {
-			body, _ := json.Marshal(endpoint.TokenExchangeRequest{FirebaseToken: "mfa-token"})
+			body, _ := json.Marshal(requests.TokenExchangeRequest{FirebaseToken: "mfa-token"})
 			req := httptest.NewRequest(http.MethodPost, "/token-exchange", bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
 			rec := httptest.NewRecorder()
@@ -74,7 +75,7 @@ var _ = Describe("Handler", func() {
 		})
 
 		It("should return token and set cookie on successful exchange", func() {
-			body, _ := json.Marshal(endpoint.TokenExchangeRequest{FirebaseToken: "valid-token"})
+			body, _ := json.Marshal(requests.TokenExchangeRequest{FirebaseToken: "valid-token"})
 			req := httptest.NewRequest(http.MethodPost, "/token-exchange", bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
 			rec := httptest.NewRecorder()

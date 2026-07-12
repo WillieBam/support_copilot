@@ -10,6 +10,8 @@ import (
 
 	"github.com/WillieBam/support_copilot/backend/internal/interfaces"
 	"github.com/WillieBam/support_copilot/backend/types"
+	"github.com/WillieBam/support_copilot/backend/types/requests"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 )
 
@@ -29,22 +31,9 @@ type queryRequest struct {
 	Input string `json:"input"`
 }
 
-type queryResponse struct {
-	Output string `json:"output"`
-}
-
-// Define the payload structures
-type TokenExchangeRequest struct {
-	FirebaseToken string `json:"firebase_token"`
-}
-
-type TokenExchangeResponse struct {
-	Token string `json:"token"`
-}
-
 // TokenExchangeHandler converts a validated Firebase token into a JWT session token
 func (h *Handler) TokenExchangeHandler(c *echo.Context) error {
-	var req TokenExchangeRequest
+	var req requests.TokenExchangeRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Missing request payload"})
 	}
@@ -182,4 +171,26 @@ func (h *Handler) Query(c *echo.Context) error {
 		}
 	}
 
+}
+
+func (h *Handler) IngestAlert(c *echo.Context) error {
+	var req requests.AlertIngestRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid alert payload"})
+	}
+
+	if req.IncidentID == uuid.Nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "service name is required"})
+	}
+
+	if req.ServiceName == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "incident id is required"})
+	}
+
+	err := h.apps.IngestAlert(c.Request().Context(), req.IncidentID, req.ServiceName, req.Severity, string(req.Metrics))
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"status": "success"})
 }

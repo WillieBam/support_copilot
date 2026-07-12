@@ -9,15 +9,35 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/WillieBam/support_copilot/backend/app/config"
+	"github.com/WillieBam/support_copilot/backend/internal/interfaces"
 	"github.com/WillieBam/support_copilot/backend/types"
+	"github.com/WillieBam/support_copilot/backend/types/models"
+	"github.com/google/uuid"
 )
 
-type AppService struct{}
+type AppService struct {
+	alertRepo interfaces.IAlertRepository
+}
 
-func NewAppService() *AppService {
-	return &AppService{}
+func NewAppService(alertRepo interfaces.IAlertRepository) interfaces.IAppService {
+	return &AppService{
+		alertRepo: alertRepo,
+	}
+}
+
+func (s *AppService) IngestAlert(ctx context.Context, incidentID uuid.UUID, serviceName, severity, metrics string) error {
+	alert := &models.Alert{
+		ID:          uuid.New(),
+		IncidentID:  incidentID,
+		ServiceName: serviceName,
+		Severity:    severity,
+		Metrics:     metrics,
+		ReceivedAt:  time.Now(),
+	}
+	return s.alertRepo.StoreAlert(ctx, alert)
 }
 
 // QueryStream connects to the Ollama API to run a query with streaming enabled.

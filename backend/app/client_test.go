@@ -17,11 +17,11 @@ var _ = Describe("App Package Internal Elements", func() {
 	})
 
 	Context("appRepository initialization", func() {
-		It("should initialize newAppRepository correctly", func() {
+		It("should initialize NewAppRepository correctly", func() {
 			client := newAppClient()
-			repo := newAppRepository(client)
+			repo := NewAppRepository(client, nil, nil)
 			Expect(repo).NotTo(BeNil())
-			Expect(repo.client).To(Equal(client))
+			Expect(repo.Client).To(Equal(client))
 		})
 	})
 })

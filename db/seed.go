@@ -15,6 +15,9 @@ func InitDatabase(db *gorm.DB) {
 	}
 
 	err := db.AutoMigrate(&models.User{})
+	if err == nil {
+		err = db.AutoMigrate(&models.Alert{})
+	}
 	if err != nil {
 		log.Fatalf("AutoMigrate failed: %v", err)
 	}

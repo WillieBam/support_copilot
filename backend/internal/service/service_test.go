@@ -2,27 +2,34 @@ package service_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/mock"
+	"github.com/google/uuid"
 
 	"github.com/WillieBam/support_copilot/backend/app/config"
+	"github.com/WillieBam/support_copilot/backend/internal/interfaces"
+	"github.com/WillieBam/support_copilot/backend/internal/mocks"
 	"github.com/WillieBam/support_copilot/backend/internal/service"
 	"github.com/WillieBam/support_copilot/backend/types"
 )
 
-var _ = Describe("AppService (Streaming)", func() {
+var _ = Describe("AppService (Streaming & Alerts)", func() {
 	var (
-		appSvc *service.AppService
-		ctx    context.Context
+		appSvc        interfaces.IAppService
+		mockAlertRepo *mocks.IAlertRepository
+		ctx           context.Context
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		appSvc = service.NewAppService()
+		mockAlertRepo = &mocks.IAlertRepository{}
+		appSvc = service.NewAppService(mockAlertRepo)
 	})
 
 	Context("QueryStream", func() {
@@ -100,6 +107,27 @@ var _ = Describe("AppService (Streaming)", func() {
 
 			err := appSvc.QueryStream(cancelCtx, "hello test", streamChan)
 			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	Context("IngestAlert", func() {
+		It("should successfully store alert in repository", func() {
+			incidentID := uuid.New()
+			mockAlertRepo.On("StoreAlert", mock.Anything, mock.Anything).Return(nil)
+
+			err := appSvc.IngestAlert(ctx, incidentID, "auth-service", "critical", "cpu_util > 90%")
+			Expect(err).NotTo(HaveOccurred())
+			mockAlertRepo.AssertExpectations(GinkgoT())
+		})
+
+		It("should return error if repository fails to store alert", func() {
+			incidentID := uuid.New()
+			mockAlertRepo.On("StoreAlert", mock.Anything, mock.Anything).Return(errors.New("db error"))
+
+			err := appSvc.IngestAlert(ctx, incidentID, "auth-service", "critical", "cpu_util > 90%")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(Equal("db error"))
+			mockAlertRepo.AssertExpectations(GinkgoT())
 		})
 	})
 })
