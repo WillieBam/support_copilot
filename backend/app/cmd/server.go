@@ -43,11 +43,13 @@ func supportCopilotExec(cmd *cobra.Command, args []string) {
 		apiGroup.Use(middlewares.AuthMiddleware(a.AuthService))
 		apiGroup.GET("/auth/me", h.Me)
 		apiGroup.GET("/alerts/ingest", h.IngestAlert)
+		apiGroup.POST("/alerts/ingest", h.IngestAlert)
 
 		// '/query' group endpoints
 		g := e.Group("/query")
 		g.Use(middlewares.AuthMiddleware(a.AuthService))
 		g.POST("/chat", h.Query)
+
 	}); err != nil {
 		slog.Error("server gave up", "err", err)
 	}

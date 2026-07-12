@@ -179,6 +179,11 @@ func (h *Handler) IngestAlert(c *echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid alert payload"})
 	}
 
+	// var compactedBuffer bytes.Buffer
+	// if err := json.Compact(&compactedBuffer, req.Metrics); err == nil {
+	// 	req.Metrics = compactedBuffer.Bytes()
+	// }
+
 	if req.IncidentID == uuid.Nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "service name is required"})
 	}

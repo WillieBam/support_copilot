@@ -7,7 +7,7 @@ import (
 )
 
 type Alert struct {
-	ID          uuid.UUID `gorm:"type:uuid_generate_v4();primaryKey"`
+	ID          uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
 	IncidentID  uuid.UUID `gorm:"type:uuid;not null"`
 	ReceivedAt  time.Time `gorm:"type:timestamp(0);default:CURRENT_TIMESTAMP"`
 	ServiceName string    `gorm:"type:varchar(255);not null"`

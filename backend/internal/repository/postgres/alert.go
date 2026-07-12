@@ -18,7 +18,11 @@ func NewAlertRepository(db *gorm.DB) interfaces.IAlertRepository {
 }
 
 func (a *alertRepository) StoreAlert(ctx context.Context, alert *models.Alert) error {
-	return a.db.WithContext(ctx).Create(alert).Error
+	result := a.db.WithContext(ctx).Create(&alert)
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
 }
 
 func (a *alertRepository) RetrieveAlert(ctx context.Context, id uuid.UUID) (*models.Alert, error) {
