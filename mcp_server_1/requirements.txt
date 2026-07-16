@@ -77,3 +77,6 @@ uvicorn==0.41.0
 watchfiles==1.1.1
 websockets==16.0
 zipp==3.23.0
+joblib
+numpy==2.3.0
+scikit-learn
