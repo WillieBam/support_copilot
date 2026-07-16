@@ -21,10 +21,11 @@ type AppService struct {
 	mcpClient    interfaces.IMCPClient
 }
 
-func NewAppService(alertRepo interfaces.IAlertRepository, ollamaClient interfaces.IOllamaClient) interfaces.IAppService {
+func NewAppService(alertRepo interfaces.IAlertRepository, ollamaClient interfaces.IOllamaClient, mcpClient interfaces.IMCPClient) interfaces.IAppService {
 	return &AppService{
 		alertRepo:    alertRepo,
 		ollamaClient: ollamaClient,
+		mcpClient:    mcpClient,
 	}
 }
 
