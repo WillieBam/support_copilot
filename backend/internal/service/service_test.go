@@ -20,6 +20,7 @@ var _ = Describe("AppService (Streaming & Alerts)", func() {
 		appSvc        interfaces.IAppService
 		mockAlertRepo *mocks.IAlertRepository
 		mockOllama    *mocks.IOllamaClient
+		mockMcpOne    *mocks.IMCPClient
 		ctx           context.Context
 	)
 
@@ -27,8 +28,9 @@ var _ = Describe("AppService (Streaming & Alerts)", func() {
 		ctx = context.Background()
 		mockAlertRepo = &mocks.IAlertRepository{}
 		mockOllama = &mocks.IOllamaClient{}
+		mockMcpOne = &mocks.IMCPClient{}
 
-		appSvc = service.NewAppService(mockAlertRepo, mockOllama)
+		appSvc = service.NewAppService(mockAlertRepo, mockOllama, mockMcpOne)
 	})
 
 	Context("QueryStream", func() {

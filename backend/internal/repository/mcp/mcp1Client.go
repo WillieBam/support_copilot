@@ -19,7 +19,7 @@ type mcp1Client struct {
 	mcpBaseUrl string
 }
 
-func NewMcpClient(cfg *config.Config) interfaces.IMCPClient {
+func NewMcpOneClient(cfg *config.Config) interfaces.IMCPClient {
 	host := cfg.MCP1.Host
 	if host == "" {
 		host = "localhost"
