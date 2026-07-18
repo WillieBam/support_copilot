@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:15
+    image: docker.io/library/postgres:15
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER}
@@ -24,6 +24,9 @@ services:
     env_file: .env
     ports:
       - "${BACKEND_PORT:-8080}:8080"
+    volumes:
+    - ./.env:/.env
+    - ./backend/app/config/serviceAccountKey.json:/app/backend/app/config/serviceAccountKey.json
     environment:
       HTTP_PORT: 8080
       DATABASE_HOST: postgres
