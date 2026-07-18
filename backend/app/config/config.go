@@ -95,7 +95,9 @@ func newConfig() IConfig {
 	cfg.AddConfigPath("./config")
 
 	if err := cfg.ReadInConfig(); err != nil {
-		slog.Error("Failed to read config", "err", err)
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			slog.Error("Failed to read config", "err", err)
+		}
 	}
 
 	return cfg

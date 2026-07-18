@@ -8,11 +8,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/mock"
+	"gorm.io/gorm"
 
 	"github.com/WillieBam/support_copilot/backend/internal/interfaces"
 	"github.com/WillieBam/support_copilot/backend/internal/mocks"
 	"github.com/WillieBam/support_copilot/backend/internal/service"
 	"github.com/WillieBam/support_copilot/backend/types"
+	"github.com/WillieBam/support_copilot/backend/types/models"
 )
 
 var _ = Describe("AppService (Streaming & Alerts)", func() {
@@ -115,6 +117,46 @@ var _ = Describe("AppService (Streaming & Alerts)", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(Equal("db error"))
 			mockAlertRepo.AssertExpectations(GinkgoT())
+		})
+	})
+
+	Context("RetrieveAlert", func() {
+		It("should successfully retrieve alert from repository", func() {
+			alertID := uuid.New()
+			expectedAlert := &models.Alert{
+				ID:          alertID,
+				ServiceName: "test-service",
+				Severity:    "high",
+			}
+			mockAlertRepo.On("RetrieveAlert", mock.Anything, alertID).Return(expectedAlert, nil)
+
+			alert, err := appSvc.RetrieveAlert(ctx, alertID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(alert).To(Equal(expectedAlert))
+			mockAlertRepo.AssertExpectations(GinkgoT())
+		})
+
+		It("should return 'alert not found' error if repository returns gorm.ErrRecordNotFound", func() {
+			alertID := uuid.New()
+			mockAlertRepo.On("RetrieveAlert", mock.Anything, alertID).Return(nil, gorm.ErrRecordNotFound)
+
+			alert, err := appSvc.RetrieveAlert(ctx, alertID)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(Equal("alert not found"))
+			mockAlertRepo.AssertExpectations(GinkgoT())
+			Expect(alert).To(BeNil())
+		})
+
+		It("should return other repository errors as-is", func() {
+			alertID := uuid.New()
+			mockAlertRepo.On("RetrieveAlert", mock.Anything, alertID).Return(nil, errors.New("Internal Server Error"))
+
+			alert, err := appSvc.RetrieveAlert(ctx, alertID)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(Equal("Internal Server Error"))
+			mockAlertRepo.AssertExpectations(GinkgoT())
+			Expect(alert).To(BeNil())
+
 		})
 	})
 })

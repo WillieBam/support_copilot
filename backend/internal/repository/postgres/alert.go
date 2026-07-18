@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 
 	"github.com/WillieBam/support_copilot/backend/internal/interfaces"
 	"github.com/WillieBam/support_copilot/backend/types/models"
@@ -28,7 +29,10 @@ func (a *alertRepository) StoreAlert(ctx context.Context, alert *models.Alert) e
 func (a *alertRepository) RetrieveAlert(ctx context.Context, id uuid.UUID) (*models.Alert, error) {
 	var alert models.Alert
 	if err := a.db.WithContext(ctx).First(&alert, "id = ?", id).Error; err != nil {
-		return nil, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
+		return nil, errors.New("Internal Server Error")
 	}
 	return &alert, nil
 }

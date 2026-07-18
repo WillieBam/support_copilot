@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"errors"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -13,6 +14,7 @@ import (
 	"github.com/WillieBam/support_copilot/backend/types/models"
 	"github.com/WillieBam/support_copilot/backend/types/requests"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type AppService struct {
@@ -82,4 +84,15 @@ func (s *AppService) ProcessAlert(ctx context.Context, rawMetrics string, stream
 	}
 
 	return nil
+}
+
+func (s *AppService) RetrieveAlert(ctx context.Context, id uuid.UUID) (*models.Alert, error) {
+	alert, err := s.alertRepo.RetrieveAlert(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("alert not found")
+		}
+		return nil, err
+	}
+	return alert, nil
 }

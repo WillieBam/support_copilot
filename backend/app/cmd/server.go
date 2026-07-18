@@ -42,8 +42,8 @@ func supportCopilotExec(cmd *cobra.Command, args []string) {
 		apiGroup := e.Group("/api")
 		apiGroup.Use(middlewares.AuthMiddleware(a.AuthService))
 		apiGroup.GET("/auth/me", h.Me)
-		apiGroup.GET("/alerts/ingest", h.IngestAlert)
 		apiGroup.POST("/alerts/ingest", h.IngestAlert)
+		apiGroup.GET("/alerts/:id", h.RetrieveAlert)
 
 		// '/query' group endpoints
 		g := e.Group("/query")

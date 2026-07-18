@@ -30,7 +30,7 @@ func NewMcpOneClient(cfg *config.Config) interfaces.IMCPClient {
 		port = "9000"
 	}
 
-	baseUrl := fmt.Sprintf("http://%s:%d", host, port)
+	baseUrl := fmt.Sprintf("http://%s:%s", host, port)
 
 	return &mcp1Client{
 		httpClient: &http.Client{Timeout: 15 * time.Second},
