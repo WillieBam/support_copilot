@@ -7,6 +7,8 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
+	models "github.com/WillieBam/support_copilot/backend/types/models"
+
 	types "github.com/WillieBam/support_copilot/backend/types"
 
 	uuid "github.com/google/uuid"
@@ -35,6 +37,24 @@ func (_m *IAppService) IngestAlert(ctx context.Context, incidentID uuid.UUID, se
 	return r0
 }
 
+// ProcessAlert provides a mock function with given fields: ctx, rawMetrics, streamChan
+func (_m *IAppService) ProcessAlert(ctx context.Context, rawMetrics string, streamChan chan<- types.StreamEvent) error {
+	ret := _m.Called(ctx, rawMetrics, streamChan)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ProcessAlert")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, chan<- types.StreamEvent) error); ok {
+		r0 = rf(ctx, rawMetrics, streamChan)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // QueryStream provides a mock function with given fields: ctx, prompt, streamChan
 func (_m *IAppService) QueryStream(ctx context.Context, prompt string, streamChan chan<- types.StreamEvent) error {
 	ret := _m.Called(ctx, prompt, streamChan)
@@ -51,6 +71,36 @@ func (_m *IAppService) QueryStream(ctx context.Context, prompt string, streamCha
 	}
 
 	return r0
+}
+
+// RetrieveAlert provides a mock function with given fields: ctx, id
+func (_m *IAppService) RetrieveAlert(ctx context.Context, id uuid.UUID) (*models.Alert, error) {
+	ret := _m.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RetrieveAlert")
+	}
+
+	var r0 *models.Alert
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) (*models.Alert, error)); ok {
+		return rf(ctx, id)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) *models.Alert); ok {
+		r0 = rf(ctx, id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*models.Alert)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID) error); ok {
+		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // NewIAppService creates a new instance of IAppService. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

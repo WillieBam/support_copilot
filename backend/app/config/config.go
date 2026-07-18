@@ -47,6 +47,11 @@ type Config struct {
 		Model   string
 		BaseURL string `mapstructure:"base_url"`
 	}
+
+	MCP1 struct {
+		Host string
+		Port string
+	}
 }
 
 func Get() *Config {
@@ -80,6 +85,8 @@ func newConfig() IConfig {
 	cfg.SetDefault("firebase.service_account_path", "backend/app/config/serviceAccountKey.json")
 	cfg.SetDefault("ollama.model", "llama3.2")
 	cfg.SetDefault("ollama.base_url", "http://localhost:11434")
+	cfg.SetDefault("mcp1.host", "localhost")
+	cfg.SetDefault("mcp1.port", 9000)
 	cfg.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	cfg.AutomaticEnv()
 	cfg.SetConfigName("config")
@@ -88,7 +95,9 @@ func newConfig() IConfig {
 	cfg.AddConfigPath("./config")
 
 	if err := cfg.ReadInConfig(); err != nil {
-		slog.Error("Failed to read config", "err", err)
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			slog.Error("Failed to read config", "err", err)
+		}
 	}
 
 	return cfg

@@ -8,6 +8,7 @@ import (
 	"github.com/WillieBam/support_copilot/backend/internal/interfaces"
 	firebaseRepo "github.com/WillieBam/support_copilot/backend/internal/repository/firebase"
 	llm "github.com/WillieBam/support_copilot/backend/internal/repository/llm"
+	mcp "github.com/WillieBam/support_copilot/backend/internal/repository/mcp"
 	postgresRepo "github.com/WillieBam/support_copilot/backend/internal/repository/postgres"
 	"github.com/WillieBam/support_copilot/backend/internal/service"
 	gormpostgres "gorm.io/driver/postgres"
@@ -39,6 +40,7 @@ func NewApp() *App {
 	userRepo := postgresRepo.NewUserRepository(gormDB)
 	alertRepo := postgresRepo.NewAlertRepository(gormDB)
 	llmClient := llm.NewOllamaClient(cfg)
+	mcpOneClient := mcp.NewMcpOneClient(cfg)
 
 	appRepository := NewAppRepository(llmClient, userRepo, alertRepo)
 
@@ -53,7 +55,7 @@ func NewApp() *App {
 		FirebaseRepo: firebaseRepository,
 	})
 
-	appService := service.NewAppService(appRepository.Alert, appRepository.LLM)
+	appService := service.NewAppService(appRepository.Alert, appRepository.LLM, mcpOneClient)
 
 	return &App{
 		Repository:  appRepository,
