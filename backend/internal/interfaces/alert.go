@@ -9,5 +9,5 @@ import (
 
 type IAlertRepository interface {
 	StoreAlert(ctx context.Context, alert *models.Alert) error
-	RetrieveAlert(ctx context.Context, id uuid.UUID) (*models.Alert, error)
+	RetrieveAlertbyID(ctx context.Context, id uuid.UUID) (*models.Alert, error)
 }

@@ -26,7 +26,7 @@ func (a *alertRepository) StoreAlert(ctx context.Context, alert *models.Alert) e
 	return nil
 }
 
-func (a *alertRepository) RetrieveAlert(ctx context.Context, id uuid.UUID) (*models.Alert, error) {
+func (a *alertRepository) RetrieveAlertbyID(ctx context.Context, id uuid.UUID) (*models.Alert, error) {
 	var alert models.Alert
 	if err := a.db.WithContext(ctx).First(&alert, "id = ?", id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

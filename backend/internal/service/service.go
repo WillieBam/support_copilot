@@ -3,8 +3,8 @@ package service
 import (
 	"bytes"
 	"context"
-	"errors"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -74,7 +74,7 @@ func (s *AppService) ProcessAlert(ctx context.Context, rawMetrics string, stream
 	streamChan <- types.StreamEvent{Type: "status", Content: "Step 3/3: Passing payload + anomaly state to LLM Validation Agent..."}
 
 	prompt := fmt.Sprintf(
-		"System Alert Context:\n- Service Target: Datagateway Gateway\n- ML IsolationForest Classification: %s (DB Code: %d)\n\nTelemetry Raw Vector:\n- CPU: %.2f%%\n- Memory: %.2f%%\n- Latency: %.2fms\n- Availability: %.2f%%\n\nAnalyze this environment profile and output diagnostic recommendations.",
+		"System Alert Context:\n- Service Target: DG\n- ML IsolationForest Classification: %s (DB Code: %d)\n\nTelemetry Raw Vector:\n- CPU: %.2f%%\n- Memory: %.2f%%\n- Latency: %.2fms\n- Availability: %.2f%%\n\nAnalyze this environment profile and output diagnostic recommendations.",
 		mlResult.Label, mlResult.Status, metrics.CpuUsage, metrics.MemoryUsage, metrics.ResponseLatency, metrics.AvailabilityPercent,
 	)
 
@@ -87,7 +87,7 @@ func (s *AppService) ProcessAlert(ctx context.Context, rawMetrics string, stream
 }
 
 func (s *AppService) RetrieveAlert(ctx context.Context, id uuid.UUID) (*models.Alert, error) {
-	alert, err := s.alertRepo.RetrieveAlert(ctx, id)
+	alert, err := s.alertRepo.RetrieveAlertbyID(ctx, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("alert not found")
