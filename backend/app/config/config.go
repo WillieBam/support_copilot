@@ -19,6 +19,8 @@ type IConfig interface {
 }
 
 type Config struct {
+	ClientDir string `mapstructure:"client_dir"`
+
 	Http struct {
 		Port            int
 		ShutdownTimeOut time.Duration
@@ -71,6 +73,7 @@ func newConfig() IConfig {
 		return cfg
 	}
 	cfg = viper.New()
+	cfg.SetDefault("client_dir", "frontend/dist")
 	cfg.SetDefault("http.port", 8080)
 	cfg.SetDefault("http.shutdownTimeOut", 10*time.Second)
 	cfg.SetDefault("database.host", "localhost")

@@ -15,6 +15,7 @@ import (
 	"github.com/WillieBam/support_copilot/backend/internal/service"
 	"github.com/WillieBam/support_copilot/backend/types"
 	"github.com/WillieBam/support_copilot/backend/types/models"
+	"github.com/WillieBam/support_copilot/backend/types/requests"
 )
 
 var _ = Describe("AppService (Streaming & Alerts)", func() {
@@ -37,19 +38,17 @@ var _ = Describe("AppService (Streaming & Alerts)", func() {
 
 	Context("QueryStream", func() {
 		It("should connect to Ollama server and stream token events correctly", func() {
-			mockOllama.On("QueryStream", mock.Anything, "hello test", mock.Anything).
-				Return(nil).
+			mockOllama.On("QueryStreamWithTools", mock.Anything, mock.Anything, mock.Anything).
+				Return(&requests.OllamaMessage{Role: "assistant", Content: "Hello world!"}, nil).
 				Run(func(args mock.Arguments) {
 					streamChan := args.Get(2).(chan<- types.StreamEvent)
-					streamChan <- types.StreamEvent{Type: "reasoning", Content: "Analyzing user prompt...\n "}
-					streamChan <- types.StreamEvent{Type: "reasoning", Content: "Connecting to Llama 3.2...\n"}
 					streamChan <- types.StreamEvent{Type: "text", Content: "Hello"}
 					streamChan <- types.StreamEvent{Type: "text", Content: " world!"}
 				})
 
 			streamChan := make(chan types.StreamEvent, 10)
 
-			err := appSvc.QueryStream(ctx, "hello test", streamChan)
+			err := appSvc.QueryStreamWithTools(ctx, "hello test", streamChan)
 			Expect(err).NotTo(HaveOccurred())
 			close(streamChan)
 
@@ -58,43 +57,67 @@ var _ = Describe("AppService (Streaming & Alerts)", func() {
 				events = append(events, ev)
 			}
 
-			// Expected result:
-			// 1. "reasoning" - Analyzing user prompt...
-			// 2. "reasoning" - Connecting to Llama 3.2...
-			// 3. "text" - Hello
-			// 4. "text" -  world!
-			Expect(len(events)).To(BeNumerically(">=", 3))
-			Expect(events[0].Type).To(Equal("reasoning"))
-			Expect(events[2].Type).To(Equal("text"))
-			Expect(events[2].Content).To(Equal("Hello"))
-			Expect(events[3].Type).To(Equal("text"))
-			Expect(events[3].Content).To(Equal(" world!"))
+			Expect(len(events)).To(Equal(2))
+			Expect(events[0].Type).To(Equal("text"))
+			Expect(events[0].Content).To(Equal("Hello"))
+			Expect(events[1].Type).To(Equal("text"))
+			Expect(events[1].Content).To(Equal(" world!"))
 			mockOllama.AssertExpectations(GinkgoT())
 		})
 
 		It("should return an error if the server returns non-200 status code", func() {
-			mockOllama.On("QueryStream", mock.Anything, "hello test", mock.Anything).
-				Return(errors.New("Ollama returned status 500: ollama internal error"))
+			mockOllama.On("QueryStreamWithTools", mock.Anything, mock.Anything, mock.Anything).
+				Return(nil, errors.New("Ollama returned status 500: ollama internal error"))
 
 			streamChan := make(chan types.StreamEvent, 10)
 
-			err := appSvc.QueryStream(ctx, "hello test", streamChan)
+			err := appSvc.QueryStreamWithTools(ctx, "hello test", streamChan)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("Ollama returned status 500"))
 			mockOllama.AssertExpectations(GinkgoT())
 		})
 
 		It("should return an error if client cancels the context", func() {
-			mockOllama.On("QueryStream", mock.Anything, "hello test", mock.Anything).
-				Return(context.Canceled)
+			mockOllama.On("QueryStreamWithTools", mock.Anything, mock.Anything, mock.Anything).
+				Return(nil, context.Canceled)
 
 			cancelCtx, cancel := context.WithCancel(ctx)
 			cancel() // cancel immediately
 
 			streamChan := make(chan types.StreamEvent, 10)
 
-			err := appSvc.QueryStream(cancelCtx, "hello test", streamChan)
+			err := appSvc.QueryStreamWithTools(cancelCtx, "hello test", streamChan)
 			Expect(err).To(HaveOccurred())
+			mockOllama.AssertExpectations(GinkgoT())
+		})
+
+		It("should fallback to direct text response if tool call receives dummy alert_id null", func() {
+			toolCallMsg := &requests.OllamaMessage{
+				Role: "assistant",
+				ToolCalls: []requests.OllamaToolCall{
+					{
+						Function: requests.OllamaFunctionCall{
+							Name: "validate_alert",
+							Arguments: map[string]interface{}{
+								"alert_id": "null",
+							},
+						},
+					},
+				},
+			}
+			// First call returns tool call with alert_id "null"
+			mockOllama.On("QueryStreamWithTools", mock.Anything, mock.Anything, mock.Anything).Return(toolCallMsg, nil).Once()
+
+			// Fallback call
+			fallbackMsg := &requests.OllamaMessage{Role: "assistant", Content: "You're welcome!"}
+			mockOllama.On("QueryStreamWithTools", mock.Anything, mock.Anything, mock.Anything).Return(fallbackMsg, nil).Once()
+
+			streamChan := make(chan types.StreamEvent, 10)
+
+			err := appSvc.QueryStreamWithTools(ctx, "alright , thanks", streamChan)
+			Expect(err).NotTo(HaveOccurred())
+			close(streamChan)
+
 			mockOllama.AssertExpectations(GinkgoT())
 		})
 	})
@@ -128,7 +151,7 @@ var _ = Describe("AppService (Streaming & Alerts)", func() {
 				ServiceName: "test-service",
 				Severity:    "high",
 			}
-			mockAlertRepo.On("RetrieveAlert", mock.Anything, alertID).Return(expectedAlert, nil)
+			mockAlertRepo.On("RetrieveAlertbyID", mock.Anything, alertID).Return(expectedAlert, nil)
 
 			alert, err := appSvc.RetrieveAlert(ctx, alertID)
 			Expect(err).NotTo(HaveOccurred())
@@ -138,7 +161,7 @@ var _ = Describe("AppService (Streaming & Alerts)", func() {
 
 		It("should return 'alert not found' error if repository returns gorm.ErrRecordNotFound", func() {
 			alertID := uuid.New()
-			mockAlertRepo.On("RetrieveAlert", mock.Anything, alertID).Return(nil, gorm.ErrRecordNotFound)
+			mockAlertRepo.On("RetrieveAlertbyID", mock.Anything, alertID).Return(nil, gorm.ErrRecordNotFound)
 
 			alert, err := appSvc.RetrieveAlert(ctx, alertID)
 			Expect(err).To(HaveOccurred())
@@ -149,7 +172,7 @@ var _ = Describe("AppService (Streaming & Alerts)", func() {
 
 		It("should return other repository errors as-is", func() {
 			alertID := uuid.New()
-			mockAlertRepo.On("RetrieveAlert", mock.Anything, alertID).Return(nil, errors.New("Internal Server Error"))
+			mockAlertRepo.On("RetrieveAlertbyID", mock.Anything, alertID).Return(nil, errors.New("Internal Server Error"))
 
 			alert, err := appSvc.RetrieveAlert(ctx, alertID)
 			Expect(err).To(HaveOccurred())

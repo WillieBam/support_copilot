@@ -1,11 +1,12 @@
 package interfaces
 
 import (
-	context "context"
+	"context"
 
 	"github.com/WillieBam/support_copilot/backend/types"
+	"github.com/WillieBam/support_copilot/backend/types/requests"
 )
 
 type IOllamaClient interface {
-	QueryStream(ctx context.Context, prompt string, streamChan chan<- types.StreamEvent) error
+	QueryStreamWithTools(ctx context.Context, req requests.OllamaChatRequest, streamChan chan<- types.StreamEvent) (*requests.OllamaMessage, error)
 }

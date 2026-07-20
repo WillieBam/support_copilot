@@ -37,30 +37,13 @@ func (_m *IAppService) IngestAlert(ctx context.Context, incidentID uuid.UUID, se
 	return r0
 }
 
-// ProcessAlert provides a mock function with given fields: ctx, rawMetrics, streamChan
-func (_m *IAppService) ProcessAlert(ctx context.Context, rawMetrics string, streamChan chan<- types.StreamEvent) error {
-	ret := _m.Called(ctx, rawMetrics, streamChan)
 
-	if len(ret) == 0 {
-		panic("no return value specified for ProcessAlert")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, chan<- types.StreamEvent) error); ok {
-		r0 = rf(ctx, rawMetrics, streamChan)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// QueryStream provides a mock function with given fields: ctx, prompt, streamChan
-func (_m *IAppService) QueryStream(ctx context.Context, prompt string, streamChan chan<- types.StreamEvent) error {
+// QueryStreamWithTools provides a mock function with given fields: ctx, prompt, streamChan
+func (_m *IAppService) QueryStreamWithTools(ctx context.Context, prompt string, streamChan chan<- types.StreamEvent) error {
 	ret := _m.Called(ctx, prompt, streamChan)
 
 	if len(ret) == 0 {
-		panic("no return value specified for QueryStream")
+		panic("no return value specified for QueryStreamWithTools")
 	}
 
 	var r0 error

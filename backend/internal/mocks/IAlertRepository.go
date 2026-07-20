@@ -17,12 +17,12 @@ type IAlertRepository struct {
 	mock.Mock
 }
 
-// RetrieveAlert provides a mock function with given fields: ctx, id
-func (_m *IAlertRepository) RetrieveAlert(ctx context.Context, id uuid.UUID) (*models.Alert, error) {
+// RetrieveAlertbyID provides a mock function with given fields: ctx, id
+func (_m *IAlertRepository) RetrieveAlertbyID(ctx context.Context, id uuid.UUID) (*models.Alert, error) {
 	ret := _m.Called(ctx, id)
 
 	if len(ret) == 0 {
-		panic("no return value specified for RetrieveAlert")
+		panic("no return value specified for RetrieveAlertbyID")
 	}
 
 	var r0 *models.Alert

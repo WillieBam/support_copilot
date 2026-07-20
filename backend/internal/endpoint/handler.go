@@ -132,7 +132,7 @@ func (h *Handler) Query(c *echo.Context) error {
 
 	go func() {
 		// Pass the channel into the service so it can push events!
-		err := h.apps.QueryStream(c.Request().Context(), req.Input, streamChan)
+		err := h.apps.QueryStreamWithTools(c.Request().Context(), req.Input, streamChan)
 		if err != nil {
 			errorChan <- err
 		}
