@@ -10,6 +10,8 @@ from urllib import request as urllib_request
 import joblib
 import numpy as np
 from fastmcp import FastMCP
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 load_dotenv()
 
@@ -99,19 +101,17 @@ def detect_anomalies(
         return {
             "error": f"Inference execution failed: {str(e)}"
         }  
+
+
+@mcp.custom_route("/tools/detect_anomalies", methods=["POST"])
+async def detect_anomalies_http_endpoint(request: Request) -> JSONResponse:
+    try:
+        data = await request.json()
+        return JSONResponse(detect_anomalies(**data))
+    except Exception as e:
+        _logger.error("HTTP endpoint detect_anomalies error: %s", str(e))
+        return JSONResponse({"error": str(e)}, status_code=500)
          
-# if not _logger.handlers:
-#     _logger.setLevel(logging.INFO)
-#     formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
-
-#     console_handler = logging.StreamHandler()
-#     console_handler.setFormatter(formatter)
-#     _logger.addHandler(console_handler)
-
-#     file_handler = logging.FileHandler("mcp_tool_calls.log", encoding="utf-8")
-#     file_handler.setFormatter(formatter)
-#     _logger.addHandler(file_handler)
-
 
 def _chat_with_ollama(message: str, model: Optional[str] = None) -> str:
     selected_model = model or OLLAMA_MODEL

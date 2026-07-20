@@ -50,6 +50,12 @@ func supportCopilotExec(cmd *cobra.Command, args []string) {
 		g.Use(middlewares.AuthMiddleware(a.AuthService))
 		g.POST("/chat", h.Query)
 
+		// serve static frontend files
+		clientDir := config.Get().ClientDir
+		if clientDir != "" {
+			e.Static("/static", clientDir+"/static")
+			e.Static("/*", clientDir)
+		}
 	}); err != nil {
 		slog.Error("server gave up", "err", err)
 	}

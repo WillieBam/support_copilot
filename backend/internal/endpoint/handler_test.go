@@ -10,6 +10,7 @@ import (
 	"time"
 
 	jwt "github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/mock"
@@ -17,8 +18,10 @@ import (
 	"github.com/WillieBam/support_copilot/backend/internal/endpoint"
 	"github.com/WillieBam/support_copilot/backend/internal/mocks"
 	"github.com/WillieBam/support_copilot/backend/types"
+	"github.com/WillieBam/support_copilot/backend/types/models"
 	"github.com/WillieBam/support_copilot/backend/types/requests"
 	"github.com/labstack/echo/v5"
+
 )
 
 var _ = Describe("Handler", func() {
@@ -165,7 +168,7 @@ var _ = Describe("Handler", func() {
 			c.Set("user_uid", "uid-123")
 
 			// Setup mock stream channel
-			mockAppSvc.On("QueryStream", mock.Anything, "what is AI?", mock.Anything).
+			mockAppSvc.On("QueryStreamWithTools", mock.Anything, "what is AI?", mock.Anything).
 				Return(nil).
 				Run(func(args mock.Arguments) {
 					ch := args.Get(2).(chan<- types.StreamEvent)
@@ -182,4 +185,151 @@ var _ = Describe("Handler", func() {
 			Expect(bodyStr).To(ContainSubstring(`data: {"type":"text","content":"AI is..."}`))
 		})
 	})
+
+	Context("IngestAlert", func() {
+		It("should return 400 when body binding fails", func() {
+			req := httptest.NewRequest(http.MethodPost, "/api/alerts", strings.NewReader("invalid body"))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+
+			err := h.IngestAlert(c)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		})
+
+		It("should return 400 when IncidentID is nil", func() {
+			reqBody := requests.AlertIngestRequest{
+				IncidentID:  uuid.Nil,
+				ServiceName: "payment-service",
+				Severity:    "high",
+				Metrics:     json.RawMessage(`{"cpu": 95}`),
+			}
+			body, _ := json.Marshal(reqBody)
+			req := httptest.NewRequest(http.MethodPost, "/api/alerts", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+
+			err := h.IngestAlert(c)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		})
+
+		It("should return 400 when ServiceName is empty", func() {
+			incID := uuid.New()
+			reqBody := requests.AlertIngestRequest{
+				IncidentID:  incID,
+				ServiceName: "",
+				Severity:    "high",
+				Metrics:     json.RawMessage(`{"cpu": 95}`),
+			}
+			body, _ := json.Marshal(reqBody)
+			req := httptest.NewRequest(http.MethodPost, "/api/alerts", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+
+			err := h.IngestAlert(c)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		})
+
+		It("should return 500 when service IngestAlert fails", func() {
+			incID := uuid.New()
+			reqBody := requests.AlertIngestRequest{
+				IncidentID:  incID,
+				ServiceName: "auth-service",
+				Severity:    "critical",
+				Metrics:     json.RawMessage(`{"latency": 5000}`),
+			}
+			body, _ := json.Marshal(reqBody)
+			req := httptest.NewRequest(http.MethodPost, "/api/alerts", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+
+			mockAppSvc.On("IngestAlert", mock.Anything, incID, "auth-service", "critical", `{"latency":5000}`).
+				Return(errors.New("db error"))
+
+			err := h.IngestAlert(c)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(rec.Code).To(Equal(http.StatusInternalServerError))
+		})
+
+		It("should return 200 on successful alert ingestion", func() {
+			incID := uuid.New()
+			reqBody := requests.AlertIngestRequest{
+				IncidentID:  incID,
+				ServiceName: "auth-service",
+				Severity:    "info",
+				Metrics:     json.RawMessage(`{"status": "ok"}`),
+			}
+			body, _ := json.Marshal(reqBody)
+			req := httptest.NewRequest(http.MethodPost, "/api/alerts", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+
+			mockAppSvc.On("IngestAlert", mock.Anything, incID, "auth-service", "info", `{"status":"ok"}`).
+				Return(nil)
+
+
+			err := h.IngestAlert(c)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(rec.Code).To(Equal(http.StatusOK))
+		})
+	})
+
+	Context("RetrieveAlert", func() {
+		BeforeEach(func() {
+			e.GET("/api/alerts/:id", h.RetrieveAlert)
+		})
+
+		It("should return 400 when alert ID is invalid uuid", func() {
+			req := httptest.NewRequest(http.MethodGet, "/api/alerts/invalid-uuid", nil)
+			rec := httptest.NewRecorder()
+
+			e.ServeHTTP(rec, req)
+			Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		})
+
+		It("should return error when service RetrieveAlert fails", func() {
+			alertID := uuid.New()
+			req := httptest.NewRequest(http.MethodGet, "/api/alerts/"+alertID.String(), nil)
+			rec := httptest.NewRecorder()
+
+			mockAppSvc.On("RetrieveAlert", mock.Anything, alertID).
+				Return(nil, errors.New("alert not found"))
+
+			e.ServeHTTP(rec, req)
+			Expect(rec.Code).To(Equal(http.StatusInternalServerError))
+		})
+
+		It("should return 200 and alert payload on success", func() {
+			alertID := uuid.New()
+			expectedAlert := &models.Alert{
+				ID:          alertID,
+				ServiceName: "api-gateway",
+				Severity:    "high",
+			}
+
+			req := httptest.NewRequest(http.MethodGet, "/api/alerts/"+alertID.String(), nil)
+			rec := httptest.NewRecorder()
+
+			mockAppSvc.On("RetrieveAlert", mock.Anything, alertID).
+				Return(expectedAlert, nil)
+
+			e.ServeHTTP(rec, req)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			var res models.Alert
+			err := json.Unmarshal(rec.Body.Bytes(), &res)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(res.ID).To(Equal(alertID))
+			Expect(res.ServiceName).To(Equal("api-gateway"))
+		})
+	})
 })
+
+

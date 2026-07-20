@@ -11,9 +11,6 @@ import { firebaseAuth } from "@/firebase";
 import { exchangeToken } from "../auth/authService";
 
 // const DEFAULT_API_BASE_URL = 'http://localhost:8080'
-const SYSTEM_INSTRUCTION =
-  "You are Support Copilot. Be concise, accurate, and helpful. If the user asks about authentication, mention the Firebase TOTP flow when relevant.";
-
 function extractText(message: ThreadMessage): string {
   return message.content
     .map((part) => {
@@ -25,17 +22,9 @@ function extractText(message: ThreadMessage): string {
 }
 
 function buildPrompt(messages: readonly ThreadMessage[]): string {
-  const lines = [SYSTEM_INSTRUCTION, "Conversation:"];
-
-  for (const message of messages) {
-    const roleLabel = message.role === "assistant" ? "Assistant" : "User";
-    const content = extractText(message).trim();
-    if (!content) continue;
-    lines.push(`${roleLabel}: ${content}`);
-  }
-
-  lines.push("Assistant:");
-  return lines.join("\n\n");
+  const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
+  if (!lastUserMessage) return "";
+  return extractText(lastUserMessage).trim();
 }
 
 export function useBackendRuntime() {

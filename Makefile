@@ -1,7 +1,10 @@
 include .env
 export $(shell sed 's/=.*//' .env)
 
-.PHONY: up down dev-start dev mcp-one test
+.PHONY: up down dev-start dev mcp-one test build-frontend
+
+build-frontend:
+	cd frontend && npm install && npm run build
 
 up:
 	podman compose up --build
