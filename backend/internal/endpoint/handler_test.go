@@ -168,10 +168,10 @@ var _ = Describe("Handler", func() {
 			c.Set("user_uid", "uid-123")
 
 			// Setup mock stream channel
-			mockAppSvc.On("QueryStreamWithTools", mock.Anything, "what is AI?", mock.Anything).
+			mockAppSvc.On("QueryStreamWithTools", mock.Anything, "what is AI?", mock.Anything, mock.Anything).
 				Return(nil).
 				Run(func(args mock.Arguments) {
-					ch := args.Get(2).(chan<- types.StreamEvent)
+					ch := args.Get(3).(chan<- types.StreamEvent)
 					ch <- types.StreamEvent{Type: "reasoning", Content: "thinking"}
 					ch <- types.StreamEvent{Type: "text", Content: "AI is..."}
 				})

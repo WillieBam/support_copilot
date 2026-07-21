@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/WillieBam/support_copilot/backend/internal/classifier"
+	"github.com/WillieBam/support_copilot/backend/internal/command"
 	"github.com/WillieBam/support_copilot/backend/internal/interfaces"
 	"github.com/WillieBam/support_copilot/backend/internal/tools"
 	"github.com/WillieBam/support_copilot/backend/types"
@@ -20,31 +22,56 @@ import (
 )
 
 type AppService struct {
-	alertRepo    interfaces.IAlertRepository
-	ollamaClient interfaces.IOllamaClient
-	mcpClient    interfaces.IMCPClient
-	orchestrator interfaces.IOrchestratorService
-	toolRegistry interfaces.IToolRegistry
+	alertRepo          interfaces.IAlertRepository
+	ollamaClient       interfaces.IOllamaClient
+	mcpClient          interfaces.IMCPClient
+	orchestrator       interfaces.IOrchestratorService
+	toolRegistry       interfaces.IToolRegistry
+	commandInterceptor interfaces.ICommandInterceptor
+	intentClassifier   interfaces.IIntentClassifier
 }
 
-func NewAppService(alertRepo interfaces.IAlertRepository, ollamaClient interfaces.IOllamaClient, mcpClient interfaces.IMCPClient, toolReg ...interfaces.IToolRegistry) interfaces.IAppService {
+func NewAppService(alertRepo interfaces.IAlertRepository, ollamaClient interfaces.IOllamaClient, mcpClient interfaces.IMCPClient, opts ...interface{}) interfaces.IAppService {
 	orchestrator := NewOrchestratorService(alertRepo, mcpClient)
 
 	var registry interfaces.IToolRegistry
-	if len(toolReg) > 0 && toolReg[0] != nil {
-		registry = toolReg[0]
-	} else {
+	var cmdInterceptor interfaces.ICommandInterceptor
+	var intentCls interfaces.IIntentClassifier
+
+	for _, arg := range opts {
+		if tr, ok := arg.(interfaces.IToolRegistry); ok && tr != nil {
+			registry = tr
+		}
+		if ci, ok := arg.(interfaces.ICommandInterceptor); ok && ci != nil {
+			cmdInterceptor = ci
+		}
+		if ic, ok := arg.(interfaces.IIntentClassifier); ok && ic != nil {
+			intentCls = ic
+		}
+	}
+
+	if registry == nil {
 		tr := tools.NewToolRegistry()
 		tools.RegisterDefaultTools(tr, orchestrator)
 		registry = tr
 	}
 
+	if cmdInterceptor == nil {
+		cmdInterceptor = command.NewCommandInterceptor()
+	}
+
+	if intentCls == nil {
+		intentCls = classifier.NewIntentClassifier()
+	}
+
 	return &AppService{
-		alertRepo:    alertRepo,
-		ollamaClient: ollamaClient,
-		mcpClient:    mcpClient,
-		orchestrator: orchestrator,
-		toolRegistry: registry,
+		alertRepo:          alertRepo,
+		ollamaClient:       ollamaClient,
+		mcpClient:          mcpClient,
+		orchestrator:       orchestrator,
+		toolRegistry:       registry,
+		commandInterceptor: cmdInterceptor,
+		intentClassifier:   intentCls,
 	}
 }
 
@@ -87,17 +114,75 @@ func isValidToolCallArgs(toolName string, args map[string]interface{}) bool {
 	return true
 }
 
-func (s *AppService) QueryStreamWithTools(ctx context.Context, prompt string, streamChan chan<- types.StreamEvent) error {
+func (s *AppService) Intercept(ctx context.Context, prompt string) (*types.CommandResult, error) {
+	if s.commandInterceptor != nil {
+		return s.commandInterceptor.Intercept(ctx, prompt)
+	}
+	return &types.CommandResult{Handled: false}, nil
+}
+
+func (s *AppService) QueryStreamWithTools(ctx context.Context, prompt string, history []types.HistoryMessage, streamChan chan<- types.StreamEvent) error {
 	slog.Info("[APP SERVICE] QueryStreamWithTools started", "prompt", prompt)
 
-	systemPrompt := "You are a Support Copilot. Support Copilot is responsible to assist support engineer in resolve incidents. You have access to tools to inspect system state and alerts. Call tools ONLY when the user provides an alert ID or explicitly requests tool execution. Do NOT call any tools for general conversational input, greetings, or acknowledgments like 'ok', 'thanks', or 'thank you'."
-
-	messages := []requests.OllamaMessage{
-		{Role: "system", Content: systemPrompt},
-		{Role: "user", Content: prompt},
+	res, err := s.Intercept(ctx, prompt)
+	if err != nil {
+		slog.Error("[APP SERVICE] Command interceptor error", "err", err)
+		return err
+	}
+	if res != nil && res.Handled {
+		slog.Info("[APP SERVICE] Prompt intercepted by command parser", "prompt", prompt)
+		if res.Message != "" {
+			streamChan <- types.StreamEvent{
+				Type:    "text",
+				Content: res.Message,
+			}
+		}
+		return nil
 	}
 
-	availableTools := s.toolRegistry.GetTools()
+	systemPrompt := `You are a Support Copilot that helps support engineers resolve production incidents.
+
+## Behaviour Rules
+- Respond conversationally (no tools) when the user sends greetings, acknowledgments,
+  sign-offs, or short social messages such as "ok", "thanks", "bye", "got it", "alright",
+  "yes", "no", or any similar phrase.
+- Call tools ONLY when the user explicitly provides an alert ID (UUID format) or clearly
+  requests alert validation or system inspection.
+- If you are uncertain whether a tool call is appropriate, respond with plain text and ask
+  the user for the alert ID instead of calling the tool with a placeholder value.
+- Never fabricate alert IDs or call tools with placeholder values such as "null", "none",
+  or "00000000-0000-0000-0000-000000000000".
+- When the conversation is winding down (e.g. the user says "thanks", "bye", "ok"), reply
+  with a short, friendly closing message and do not call any tools.`
+
+	// build the full multi-turn messages array:
+	//   [system] + [history turns...] + [current user message]
+	// this is to remain LLM full conversation context so it can remember context of a conversation
+	messages := []requests.OllamaMessage{
+		{Role: "system", Content: systemPrompt},
+	}
+	for _, h := range history {
+		if h.Role == "user" || h.Role == "assistant" {
+			messages = append(messages, requests.OllamaMessage{
+				Role:    h.Role,
+				Content: h.Content,
+			})
+		}
+	}
+	messages = append(messages, requests.OllamaMessage{Role: "user", Content: prompt})
+
+	// classify the user's intent to decide whether to expose tool
+	// For conversational prompts the tool list is withheld entirely so the LLM
+	// physically cannot make a tool call
+	intent := s.intentClassifier.Classify(prompt)
+	slog.Info("[APP SERVICE] Intent classified", "intent", intent, "prompt", prompt)
+
+	var availableTools []requests.OllamaTool
+	if intent == classifier.IntentTask {
+		availableTools = s.toolRegistry.GetTools()
+	} else {
+		slog.Info("[APP SERVICE] Conversational intent detected — withholding tools from Ollama request")
+	}
 
 	req := requests.OllamaChatRequest{
 		Messages: messages,
@@ -111,19 +196,24 @@ func (s *AppService) QueryStreamWithTools(ctx context.Context, prompt string, st
 		return err
 	}
 
-	// Check if LLM requested a tool execution
-	if assistantMsg != nil && len(assistantMsg.ToolCalls) > 0 {
-		// Emit reasoning event so React UI displays it immediately in the reasoning block
-		streamChan <- types.StreamEvent{
-			Type:    "reasoning",
-			Content: fmt.Sprintln("🔍 Accessing Database to get alert... "),
-		}
+	// detect when the LLM has emitted a raw JSON tool-call object as plain text (e.g. {"name":"greet","parameters":{"message":"I"}}).
+	// checking here is to suppress that kind of response
+	if assistantMsg != nil && classifier.LooksLikeEmbeddedToolCall(assistantMsg.Content) {
+		slog.Warn("[APP SERVICE] LLM emitted embedded JSON tool-call as text — suppressing and falling back", "content", assistantMsg.Content)
+		streamChan <- types.StreamEvent{Type: "drain", Content: ""}
+		fallbackReq := requests.OllamaChatRequest{Messages: messages}
+		_, fallbackErr := s.ollamaClient.QueryStreamWithTools(ctx, fallbackReq, streamChan)
+		return fallbackErr
+	}
 
+	// check if LLM requested a tool execution
+	if assistantMsg != nil && len(assistantMsg.ToolCalls) > 0 {
+		// emit reasoning event so React UI displays it immediately in the reasoning block
 		for _, toolCall := range assistantMsg.ToolCalls {
 			toolName := toolCall.Function.Name
 			slog.Info("[APP SERVICE] Ollama triggered tool call", "tool", toolName, "args", toolCall.Function.Arguments)
 
-			// Guardrail: Pre-check tool arguments for dummy/invalid values BEFORE executing or emitting tool reasoning
+			// pre-check tool arguments for dummy/invalid values BEFORE executing or emitting tool reasoning
 			if !isValidToolCallArgs(toolName, toolCall.Function.Arguments) {
 				slog.Warn("[APP SERVICE] Tool call skipped due to dummy or missing valid parameters", "tool", toolName, "args", toolCall.Function.Arguments)
 
@@ -137,8 +227,11 @@ func (s *AppService) QueryStreamWithTools(ctx context.Context, prompt string, st
 				}
 				continue
 			}
+			streamChan <- types.StreamEvent{
+				Type:    "reasoning",
+				Content: fmt.Sprintln("🔍 Accessing Database to get alert... "),
+			}
 
-			// Emit reasoning event so React UI displays it immediately in the reasoning block
 			streamChan <- types.StreamEvent{
 				Type:    "reasoning",
 				Content: fmt.Sprintf("🔍 Intercepted tool call: %s. Executing tool...\n", toolName),
@@ -149,7 +242,7 @@ func (s *AppService) QueryStreamWithTools(ctx context.Context, prompt string, st
 			if err != nil {
 				slog.Warn("[APP SERVICE] Tool execution failed via ToolRegistry", "tool", toolName, "err", err)
 
-				// Guardrail: If tool call failed (e.g. invalid alert_id "null") and no content was streamed yet,
+				// if tool call failed (e.g. invalid alert_id "null") and no content was streamed yet,
 				// fall back to a conversational text stream without tools to avoid sending raw error noise to user
 				if strings.TrimSpace(assistantMsg.Content) == "" {
 					slog.Info("[APP SERVICE] Falling back to direct text response without tools")

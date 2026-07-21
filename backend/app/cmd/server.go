@@ -50,11 +50,11 @@ func supportCopilotExec(cmd *cobra.Command, args []string) {
 		g.Use(middlewares.AuthMiddleware(a.AuthService))
 		g.POST("/chat", h.Query)
 
-		// serve static frontend files
+		// serve the React SPA with a client-side routing fallback.
+		// see static.go for the full routing strategy.
 		clientDir := config.Get().ClientDir
 		if clientDir != "" {
-			e.Static("/static", clientDir+"/static")
-			e.Static("/*", clientDir)
+			registerSPAStatic(e, clientDir)
 		}
 	}); err != nil {
 		slog.Error("server gave up", "err", err)

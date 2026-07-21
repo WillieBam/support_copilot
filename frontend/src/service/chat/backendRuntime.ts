@@ -21,10 +21,42 @@ function extractText(message: ThreadMessage): string {
     .join("\n");
 }
 
+/** Returns the text of the latest user message (the prompt to send). */
 function buildPrompt(messages: readonly ThreadMessage[]): string {
   const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
   if (!lastUserMessage) return "";
   return extractText(lastUserMessage).trim();
+}
+
+/**
+ * conversation history to send to the backend.
+ * Includes all messages BEFORE the latest user message so the LLM has
+ * context from earlier turns (e.g. an alert ID mentioned two messages ago).
+ * Only user and assistant turns are included; system messages are managed
+ * server-side.
+ */
+function buildHistory(messages: readonly ThreadMessage[]): Array<{ role: string; content: string }> {
+  const history: Array<{ role: string; content: string }> = [];
+
+  // Find the index of the last user message
+  let lastUserIdx = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "user") {
+      lastUserIdx = i;
+      break;
+    }
+  }
+
+  // everything before the last user message goes into history
+  for (let i = 0; i < lastUserIdx; i++) {
+    const msg = messages[i];
+    if (msg.role !== "user" && msg.role !== "assistant") continue;
+    const text = extractText(msg).trim();
+    if (!text) continue;
+    history.push({ role: msg.role, content: text });
+  }
+
+  return history;
 }
 
 export function useBackendRuntime() {
@@ -39,9 +71,12 @@ export function useBackendRuntime() {
       const fetchOptions: RequestInit = {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input: buildPrompt(messages) }),
+        body: JSON.stringify({
+          input: buildPrompt(messages),
+          history: buildHistory(messages),
+        }),
         signal: abortSignal,
-        credentials: "include", // <-- This is the fetch equivalent of withCredentials: true
+        credentials: "include",
       };
 
       try {
@@ -93,6 +128,12 @@ export function useBackendRuntime() {
                 fullText += parsed.content;
               } else if (parsed.type === "reasoning") {
                 currentReasoning += parsed.content + "\n";
+              } else if (parsed.type === "drain") {
+                // backend detected hallucinated content (e.g. embedded JSON
+                // tool-call). it will discard everything accumulated so far so the
+                // clean fallback response renders from a blank slate.
+                fullText = "";
+                currentReasoning = "";
               }
 
               const contentParts: any[] = [];

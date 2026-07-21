@@ -1,0 +1,108 @@
+package classifier_test
+
+import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	"github.com/WillieBam/support_copilot/backend/internal/classifier"
+)
+
+var _ = Describe("IntentClassifier", func() {
+	var c *classifier.IntentClassifier
+
+	BeforeEach(func() {
+		c = classifier.NewIntentClassifier()
+	})
+
+	DescribeTable("should return IntentConversational for social / acknowledgement prompts",
+		func(prompt string) {
+			Expect(c.Classify(prompt)).To(Equal(classifier.IntentConversational))
+		},
+		// Acknowledgements
+		Entry("ok", "ok"),
+		Entry("ok byebye", "ok byebye"),
+		Entry("okay", "okay"),
+		Entry("alright", "alright"),
+		Entry("got it", "got it"),
+		Entry("sure", "sure"),
+		Entry("fine", "fine"),
+		Entry("noted", "noted"),
+		// Sign-offs
+		Entry("bye", "bye"),
+		Entry("byebye", "byebye"),
+		Entry("goodbye", "goodbye"),
+		Entry("see you", "see you"),
+		Entry("later", "later"),
+		// Gratitude
+		Entry("thanks", "thanks"),
+		Entry("thank you", "thank you"),
+		Entry("Thank You!", "Thank You!"),
+		Entry("ty", "ty"),
+		Entry("cheers", "cheers"),
+		// Greetings — standard
+		Entry("hi", "hi"),
+		Entry("hello", "hello"),
+		Entry("hey", "hey"),
+		Entry("good morning", "good morning"),
+		// Greetings — informal variants
+		Entry("halo", "halo"),
+		Entry("halo are you ok", "halo are you ok"),
+		Entry("hei", "hei"),
+		Entry("yo", "yo"),
+		// Wellness small-talk
+		Entry("are you ok", "are you ok"),
+		Entry("are you ok?", "are you ok?"),
+		Entry("how are you?", "how are you?"),
+		Entry("you good?", "you good?"),
+		// Yes/No
+		Entry("yes", "yes"),
+		Entry("no", "no"),
+		Entry("yep", "yep"),
+		Entry("nah", "nah"),
+		// Completion
+		Entry("done", "done"),
+		Entry("stop", "stop"),
+		Entry("that's all", "that's all"),
+		Entry("finished", "finished"),
+		// Short-message heuristic (no UUID, no task keyword, ≤80 chars)
+		Entry("what's up", "what's up"),
+		Entry("cool", "cool"),
+	)
+
+	DescribeTable("should return IntentTask for task-oriented prompts",
+		func(prompt string) {
+			Expect(c.Classify(prompt)).To(Equal(classifier.IntentTask))
+		},
+		Entry("validate alert uuid",
+			"validate alert 550e8400-e29b-41d4-a716-446655440000"),
+		Entry("check alert",
+			"check alert 123e4567-e89b-12d3-a456-426614174000"),
+		Entry("what is the system status",
+			"what is the current system status?"),
+		Entry("is the service healthy",
+			"is the auth-service healthy right now?"),
+		Entry("alert id provided",
+			"please validate 550e8400-e29b-41d4-a716-446655440000"),
+		Entry("ok followed by long uuid content is task",
+			"ok, now validate alert 550e8400-e29b-41d4-a716-446655440000"),
+		Entry("contains task keyword error",
+			"the service is throwing an error"),
+		Entry("contains task keyword monitor",
+			"please monitor the cpu usage"),
+	)
+})
+
+var _ = Describe("LooksLikeEmbeddedToolCall", func() {
+	DescribeTable("should detect hallucinated JSON tool-call content",
+		func(content string, expected bool) {
+			Expect(classifier.LooksLikeEmbeddedToolCall(content)).To(Equal(expected))
+		},
+		Entry("greet tool call", `{"name": "greet", "parameters": {"message": "I"}}`, true),
+		Entry("function key variant", `{"function": "validate_alert", "arguments": {"alert_id": "abc"}}`, true),
+		Entry("plain text", "Hello! How can I help you?", false),
+		Entry("empty string", "", false),
+		Entry("normal JSON that is not a tool call", `{"key": "value"}`, false),
+		Entry("partial match no parameters key", `{"name": "greet"}`, false),
+	)
+})
+

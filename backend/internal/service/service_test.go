@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"gorm.io/gorm"
 
+	"github.com/WillieBam/support_copilot/backend/internal/classifier"
 	"github.com/WillieBam/support_copilot/backend/internal/interfaces"
 	"github.com/WillieBam/support_copilot/backend/internal/mocks"
 	"github.com/WillieBam/support_copilot/backend/internal/service"
@@ -48,7 +49,7 @@ var _ = Describe("AppService (Streaming & Alerts)", func() {
 
 			streamChan := make(chan types.StreamEvent, 10)
 
-			err := appSvc.QueryStreamWithTools(ctx, "hello test", streamChan)
+			err := appSvc.QueryStreamWithTools(ctx, "hello test", nil, streamChan)
 			Expect(err).NotTo(HaveOccurred())
 			close(streamChan)
 
@@ -71,7 +72,7 @@ var _ = Describe("AppService (Streaming & Alerts)", func() {
 
 			streamChan := make(chan types.StreamEvent, 10)
 
-			err := appSvc.QueryStreamWithTools(ctx, "hello test", streamChan)
+			err := appSvc.QueryStreamWithTools(ctx, "hello test", nil, streamChan)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("Ollama returned status 500"))
 			mockOllama.AssertExpectations(GinkgoT())
@@ -86,7 +87,7 @@ var _ = Describe("AppService (Streaming & Alerts)", func() {
 
 			streamChan := make(chan types.StreamEvent, 10)
 
-			err := appSvc.QueryStreamWithTools(cancelCtx, "hello test", streamChan)
+			err := appSvc.QueryStreamWithTools(cancelCtx, "hello test", nil, streamChan)
 			Expect(err).To(HaveOccurred())
 			mockOllama.AssertExpectations(GinkgoT())
 		})
@@ -114,10 +115,105 @@ var _ = Describe("AppService (Streaming & Alerts)", func() {
 
 			streamChan := make(chan types.StreamEvent, 10)
 
-			err := appSvc.QueryStreamWithTools(ctx, "alright , thanks", streamChan)
+			err := appSvc.QueryStreamWithTools(ctx, "alright , thanks", nil, streamChan)
 			Expect(err).NotTo(HaveOccurred())
 			close(streamChan)
 
+			mockOllama.AssertExpectations(GinkgoT())
+		})
+
+		It("should intercept /quit prompt and halt processing without invoking Ollama", func() {
+			streamChan := make(chan types.StreamEvent, 10)
+
+			err := appSvc.QueryStreamWithTools(ctx, "/quit", nil, streamChan)
+			Expect(err).NotTo(HaveOccurred())
+			close(streamChan)
+
+			var events []types.StreamEvent
+			for ev := range streamChan {
+				events = append(events, ev)
+			}
+
+			Expect(len(events)).To(Equal(1))
+			Expect(events[0].Type).To(Equal("text"))
+			Expect(events[0].Content).To(ContainSubstring("LLM processing stopped by /quit command"))
+
+			// Assert Ollama was never called
+			mockOllama.AssertNotCalled(GinkgoT(), "QueryStreamWithTools", mock.Anything, mock.Anything, mock.Anything)
+		})
+
+		It("should delegate to mock ICommandInterceptor when provided", func() {
+			mockInterceptor := &mocks.ICommandInterceptor{}
+			customAppSvc := service.NewAppService(mockAlertRepo, mockOllama, mockMcpOne, mockInterceptor)
+
+			mockInterceptor.On("Intercept", mock.Anything, "/quit").Return(&types.CommandResult{
+				Handled: true,
+				Message: "Custom quit message",
+			}, nil)
+
+			streamChan := make(chan types.StreamEvent, 10)
+
+			err := customAppSvc.QueryStreamWithTools(ctx, "/quit", nil, streamChan)
+			Expect(err).NotTo(HaveOccurred())
+			close(streamChan)
+
+			var events []types.StreamEvent
+			for ev := range streamChan {
+				events = append(events, ev)
+			}
+
+			Expect(len(events)).To(Equal(1))
+			Expect(events[0].Content).To(Equal("Custom quit message"))
+			mockInterceptor.AssertExpectations(GinkgoT())
+		})
+
+		It("should withhold tools from Ollama when intent is conversational (ok byebye)", func() {
+			// Expect Ollama to be called with an empty tools slice
+			mockOllama.On("QueryStreamWithTools", mock.Anything,
+				mock.MatchedBy(func(req requests.OllamaChatRequest) bool {
+					return len(req.Tools) == 0
+				}),
+				mock.Anything,
+			).Return(&requests.OllamaMessage{Role: "assistant", Content: "Goodbye!"}, nil).Once()
+
+			streamChan := make(chan types.StreamEvent, 10)
+			err := appSvc.QueryStreamWithTools(ctx, "ok byebye", nil, streamChan)
+			Expect(err).NotTo(HaveOccurred())
+			mockOllama.AssertExpectations(GinkgoT())
+		})
+
+		It("should expose tools to Ollama when intent is task (validate alert uuid)", func() {
+			// Expect Ollama to be called with at least one tool in the list
+			mockOllama.On("QueryStreamWithTools", mock.Anything,
+				mock.MatchedBy(func(req requests.OllamaChatRequest) bool {
+					return len(req.Tools) > 0
+				}),
+				mock.Anything,
+			).Return(&requests.OllamaMessage{Role: "assistant", Content: "Validating..."}, nil).Once()
+
+			streamChan := make(chan types.StreamEvent, 10)
+			err := appSvc.QueryStreamWithTools(ctx, "validate alert 550e8400-e29b-41d4-a716-446655440000", nil, streamChan)
+			Expect(err).NotTo(HaveOccurred())
+			mockOllama.AssertExpectations(GinkgoT())
+		})
+
+		It("should withhold tools when a mock IIntentClassifier returns IntentConversational", func() {
+			mockCls := &mocks.IIntentClassifier{}
+			mockCls.On("Classify", "thanks mate").Return(classifier.IntentConversational)
+
+			customAppSvc := service.NewAppService(mockAlertRepo, mockOllama, mockMcpOne, mockCls)
+
+			mockOllama.On("QueryStreamWithTools", mock.Anything,
+				mock.MatchedBy(func(req requests.OllamaChatRequest) bool {
+					return len(req.Tools) == 0
+				}),
+				mock.Anything,
+			).Return(&requests.OllamaMessage{Role: "assistant", Content: "You're welcome!"}, nil).Once()
+
+			streamChan := make(chan types.StreamEvent, 10)
+			err := customAppSvc.QueryStreamWithTools(ctx, "thanks mate", nil, streamChan)
+			Expect(err).NotTo(HaveOccurred())
+			mockCls.AssertExpectations(GinkgoT())
 			mockOllama.AssertExpectations(GinkgoT())
 		})
 	})
