@@ -173,7 +173,10 @@ const Composer: FC = () => {
   }, []);
 
   return (
-    <ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
+    <ComposerPrimitive.Root
+      className="aui-composer-root relative flex w-full flex-col"
+      onSubmit={() => setInputValue("")}
+    >
       {/* command palette appears above the input shell */}
       <CommandPalette
         query={inputValue}
