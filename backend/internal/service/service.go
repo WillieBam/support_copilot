@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/WillieBam/support_copilot/backend/internal/command"
 	"github.com/WillieBam/support_copilot/backend/internal/interfaces"
 	"github.com/WillieBam/support_copilot/backend/internal/tools"
 	"github.com/WillieBam/support_copilot/backend/types"
@@ -20,31 +21,46 @@ import (
 )
 
 type AppService struct {
-	alertRepo    interfaces.IAlertRepository
-	ollamaClient interfaces.IOllamaClient
-	mcpClient    interfaces.IMCPClient
-	orchestrator interfaces.IOrchestratorService
-	toolRegistry interfaces.IToolRegistry
+	alertRepo          interfaces.IAlertRepository
+	ollamaClient       interfaces.IOllamaClient
+	mcpClient          interfaces.IMCPClient
+	orchestrator       interfaces.IOrchestratorService
+	toolRegistry       interfaces.IToolRegistry
+	commandInterceptor interfaces.ICommandInterceptor
 }
 
-func NewAppService(alertRepo interfaces.IAlertRepository, ollamaClient interfaces.IOllamaClient, mcpClient interfaces.IMCPClient, toolReg ...interfaces.IToolRegistry) interfaces.IAppService {
+func NewAppService(alertRepo interfaces.IAlertRepository, ollamaClient interfaces.IOllamaClient, mcpClient interfaces.IMCPClient, toolRegAndInterceptor ...interface{}) interfaces.IAppService {
 	orchestrator := NewOrchestratorService(alertRepo, mcpClient)
 
 	var registry interfaces.IToolRegistry
-	if len(toolReg) > 0 && toolReg[0] != nil {
-		registry = toolReg[0]
-	} else {
+	var cmdInterceptor interfaces.ICommandInterceptor
+
+	for _, arg := range toolRegAndInterceptor {
+		if tr, ok := arg.(interfaces.IToolRegistry); ok && tr != nil {
+			registry = tr
+		}
+		if ci, ok := arg.(interfaces.ICommandInterceptor); ok && ci != nil {
+			cmdInterceptor = ci
+		}
+	}
+
+	if registry == nil {
 		tr := tools.NewToolRegistry()
 		tools.RegisterDefaultTools(tr, orchestrator)
 		registry = tr
 	}
 
+	if cmdInterceptor == nil {
+		cmdInterceptor = command.NewCommandInterceptor()
+	}
+
 	return &AppService{
-		alertRepo:    alertRepo,
-		ollamaClient: ollamaClient,
-		mcpClient:    mcpClient,
-		orchestrator: orchestrator,
-		toolRegistry: registry,
+		alertRepo:          alertRepo,
+		ollamaClient:       ollamaClient,
+		mcpClient:          mcpClient,
+		orchestrator:       orchestrator,
+		toolRegistry:       registry,
+		commandInterceptor: cmdInterceptor,
 	}
 }
 
@@ -87,8 +103,31 @@ func isValidToolCallArgs(toolName string, args map[string]interface{}) bool {
 	return true
 }
 
+func (s *AppService) Intercept(ctx context.Context, prompt string) (*types.CommandResult, error) {
+	if s.commandInterceptor != nil {
+		return s.commandInterceptor.Intercept(ctx, prompt)
+	}
+	return &types.CommandResult{Handled: false}, nil
+}
+
 func (s *AppService) QueryStreamWithTools(ctx context.Context, prompt string, streamChan chan<- types.StreamEvent) error {
 	slog.Info("[APP SERVICE] QueryStreamWithTools started", "prompt", prompt)
+
+	res, err := s.Intercept(ctx, prompt)
+	if err != nil {
+		slog.Error("[APP SERVICE] Command interceptor error", "err", err)
+		return err
+	}
+	if res != nil && res.Handled {
+		slog.Info("[APP SERVICE] Prompt intercepted by command parser", "prompt", prompt)
+		if res.Message != "" {
+			streamChan <- types.StreamEvent{
+				Type:    "text",
+				Content: res.Message,
+			}
+		}
+		return nil
+	}
 
 	systemPrompt := "You are a Support Copilot. Support Copilot is responsible to assist support engineer in resolve incidents. You have access to tools to inspect system state and alerts. Call tools ONLY when the user provides an alert ID or explicitly requests tool execution. Do NOT call any tools for general conversational input, greetings, or acknowledgments like 'ok', 'thanks', or 'thank you'."
 

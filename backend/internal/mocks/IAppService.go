@@ -86,6 +86,36 @@ func (_m *IAppService) RetrieveAlert(ctx context.Context, id uuid.UUID) (*models
 	return r0, r1
 }
 
+// Intercept provides a mock function with given fields: ctx, prompt
+func (_m *IAppService) Intercept(ctx context.Context, prompt string) (*types.CommandResult, error) {
+	ret := _m.Called(ctx, prompt)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Intercept")
+	}
+
+	var r0 *types.CommandResult
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*types.CommandResult, error)); ok {
+		return rf(ctx, prompt)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *types.CommandResult); ok {
+		r0 = rf(ctx, prompt)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.CommandResult)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, prompt)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // NewIAppService creates a new instance of IAppService. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewIAppService(t interface {

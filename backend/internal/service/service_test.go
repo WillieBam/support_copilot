@@ -120,6 +120,51 @@ var _ = Describe("AppService (Streaming & Alerts)", func() {
 
 			mockOllama.AssertExpectations(GinkgoT())
 		})
+
+		It("should intercept /quit prompt and halt processing without invoking Ollama", func() {
+			streamChan := make(chan types.StreamEvent, 10)
+
+			err := appSvc.QueryStreamWithTools(ctx, "/quit", streamChan)
+			Expect(err).NotTo(HaveOccurred())
+			close(streamChan)
+
+			var events []types.StreamEvent
+			for ev := range streamChan {
+				events = append(events, ev)
+			}
+
+			Expect(len(events)).To(Equal(1))
+			Expect(events[0].Type).To(Equal("text"))
+			Expect(events[0].Content).To(ContainSubstring("LLM processing stopped by /quit command"))
+
+			// Assert Ollama was never called
+			mockOllama.AssertNotCalled(GinkgoT(), "QueryStreamWithTools", mock.Anything, mock.Anything, mock.Anything)
+		})
+
+		It("should delegate to mock ICommandInterceptor when provided", func() {
+			mockInterceptor := &mocks.ICommandInterceptor{}
+			customAppSvc := service.NewAppService(mockAlertRepo, mockOllama, mockMcpOne, mockInterceptor)
+
+			mockInterceptor.On("Intercept", mock.Anything, "/quit").Return(&types.CommandResult{
+				Handled: true,
+				Message: "Custom quit message",
+			}, nil)
+
+			streamChan := make(chan types.StreamEvent, 10)
+
+			err := customAppSvc.QueryStreamWithTools(ctx, "/quit", streamChan)
+			Expect(err).NotTo(HaveOccurred())
+			close(streamChan)
+
+			var events []types.StreamEvent
+			for ev := range streamChan {
+				events = append(events, ev)
+			}
+
+			Expect(len(events)).To(Equal(1))
+			Expect(events[0].Content).To(Equal("Custom quit message"))
+			mockInterceptor.AssertExpectations(GinkgoT())
+		})
 	})
 
 	Context("IngestAlert", func() {

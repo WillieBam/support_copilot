@@ -46,6 +46,8 @@ import {
   SquareIcon,
 } from "lucide-react";
 import type { FC } from "react";
+import { useState, useCallback } from "react";
+import { CommandPalette, type SlashCommand } from "@/components/assistant-ui/command-palette";
 
 export const Thread: FC = () => {
   return (
@@ -153,9 +155,31 @@ const ThreadSuggestionItem: FC = () => {
   );
 };
 
+/**
+ * command-palette integrates into Composer component.
+ * FYI, Composer is chat input component by assistant-ui.
+ * 
+ */
 const Composer: FC = () => {
+  // use useState to track input field
+  const [inputValue, setInputValue] = useState("");
+
+  const handleSelect = useCallback((cmd: SlashCommand) => {
+    setInputValue(cmd.name + " ");
+  }, []);
+
+  const handleDismiss = useCallback(() => {
+    setInputValue("");
+  }, []);
+
   return (
     <ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
+      {/* command palette appears above the input shell */}
+      <CommandPalette
+        query={inputValue}
+        onSelect={handleSelect}
+        onDismiss={handleDismiss}
+      />
       <ComposerPrimitive.AttachmentDropzone asChild>
         <div
           data-slot="aui_composer-shell"
@@ -163,11 +187,18 @@ const Composer: FC = () => {
         >
           <ComposerAttachments />
           <ComposerPrimitive.Input
-            placeholder="Send a message..."
+            placeholder="Send a message... (type / for commands)"
             className="aui-composer-input max-h-32 min-h-10 w-full resize-none bg-transparent px-1.75 py-1 text-sm outline-none placeholder:text-muted-foreground/80"
             rows={1}
             autoFocus
             aria-label="Message input"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                handleDismiss();
+              }
+            }}
           />
           <ComposerAction />
         </div>
