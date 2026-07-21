@@ -69,7 +69,7 @@ func RegisterDefaultTools(registry *ToolRegistry, orchestrator interfaces.IOrche
 				"properties": map[string]interface{}{
 					"alert_id": map[string]interface{}{
 						"type":        "string",
-						"description": "The unique UUID string of the alert to validate (e.g. '550e8400-e29b-41d4-a716-446655440000')",
+						"description": "The alert identifier must be a valid UUIDv4 (36 characters including hyphens, in the form xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx). Only call this tool when the user has explicitly provided this UUID. Do not guess, generate, or infer the alert_id.",
 					},
 				},
 				"required": []string{"alert_id"},

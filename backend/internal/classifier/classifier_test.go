@@ -39,11 +39,21 @@ var _ = Describe("IntentClassifier", func() {
 		Entry("Thank You!", "Thank You!"),
 		Entry("ty", "ty"),
 		Entry("cheers", "cheers"),
-		// Greetings
+		// Greetings — standard
 		Entry("hi", "hi"),
 		Entry("hello", "hello"),
 		Entry("hey", "hey"),
 		Entry("good morning", "good morning"),
+		// Greetings — informal variants
+		Entry("halo", "halo"),
+		Entry("halo are you ok", "halo are you ok"),
+		Entry("hei", "hei"),
+		Entry("yo", "yo"),
+		// Wellness small-talk
+		Entry("are you ok", "are you ok"),
+		Entry("are you ok?", "are you ok?"),
+		Entry("how are you?", "how are you?"),
+		Entry("you good?", "you good?"),
 		// Yes/No
 		Entry("yes", "yes"),
 		Entry("no", "no"),
@@ -54,6 +64,9 @@ var _ = Describe("IntentClassifier", func() {
 		Entry("stop", "stop"),
 		Entry("that's all", "that's all"),
 		Entry("finished", "finished"),
+		// Short-message heuristic (no UUID, no task keyword, ≤80 chars)
+		Entry("what's up", "what's up"),
+		Entry("cool", "cool"),
 	)
 
 	DescribeTable("should return IntentTask for task-oriented prompts",
@@ -70,7 +83,26 @@ var _ = Describe("IntentClassifier", func() {
 			"is the auth-service healthy right now?"),
 		Entry("alert id provided",
 			"please validate 550e8400-e29b-41d4-a716-446655440000"),
-		Entry("ok now validate — mixed intent should be task",
+		Entry("ok followed by long uuid content is task",
 			"ok, now validate alert 550e8400-e29b-41d4-a716-446655440000"),
+		Entry("contains task keyword error",
+			"the service is throwing an error"),
+		Entry("contains task keyword monitor",
+			"please monitor the cpu usage"),
 	)
 })
+
+var _ = Describe("LooksLikeEmbeddedToolCall", func() {
+	DescribeTable("should detect hallucinated JSON tool-call content",
+		func(content string, expected bool) {
+			Expect(classifier.LooksLikeEmbeddedToolCall(content)).To(Equal(expected))
+		},
+		Entry("greet tool call", `{"name": "greet", "parameters": {"message": "I"}}`, true),
+		Entry("function key variant", `{"function": "validate_alert", "arguments": {"alert_id": "abc"}}`, true),
+		Entry("plain text", "Hello! How can I help you?", false),
+		Entry("empty string", "", false),
+		Entry("normal JSON that is not a tool call", `{"key": "value"}`, false),
+		Entry("partial match no parameters key", `{"name": "greet"}`, false),
+	)
+})
+

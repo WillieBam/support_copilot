@@ -121,7 +121,7 @@ func (s *AppService) Intercept(ctx context.Context, prompt string) (*types.Comma
 	return &types.CommandResult{Handled: false}, nil
 }
 
-func (s *AppService) QueryStreamWithTools(ctx context.Context, prompt string, streamChan chan<- types.StreamEvent) error {
+func (s *AppService) QueryStreamWithTools(ctx context.Context, prompt string, history []types.HistoryMessage, streamChan chan<- types.StreamEvent) error {
 	slog.Info("[APP SERVICE] QueryStreamWithTools started", "prompt", prompt)
 
 	res, err := s.Intercept(ctx, prompt)
@@ -155,14 +155,25 @@ func (s *AppService) QueryStreamWithTools(ctx context.Context, prompt string, st
 - When the conversation is winding down (e.g. the user says "thanks", "bye", "ok"), reply
   with a short, friendly closing message and do not call any tools.`
 
+	// build the full multi-turn messages array:
+	//   [system] + [history turns...] + [current user message]
+	// this is to remain LLM full conversation context so it can remember context of a conversation
 	messages := []requests.OllamaMessage{
 		{Role: "system", Content: systemPrompt},
-		{Role: "user", Content: prompt},
 	}
+	for _, h := range history {
+		if h.Role == "user" || h.Role == "assistant" {
+			messages = append(messages, requests.OllamaMessage{
+				Role:    h.Role,
+				Content: h.Content,
+			})
+		}
+	}
+	messages = append(messages, requests.OllamaMessage{Role: "user", Content: prompt})
 
-	// Classify the user's intent to decide whether to expose tools.
+	// classify the user's intent to decide whether to expose tool
 	// For conversational prompts the tool list is withheld entirely so the LLM
-	// physically cannot make a tool call.
+	// physically cannot make a tool call
 	intent := s.intentClassifier.Classify(prompt)
 	slog.Info("[APP SERVICE] Intent classified", "intent", intent, "prompt", prompt)
 
@@ -185,14 +196,24 @@ func (s *AppService) QueryStreamWithTools(ctx context.Context, prompt string, st
 		return err
 	}
 
-	// Check if LLM requested a tool execution
+	// detect when the LLM has emitted a raw JSON tool-call object as plain text (e.g. {"name":"greet","parameters":{"message":"I"}}).
+	// checking here is to suppress that kind of response
+	if assistantMsg != nil && classifier.LooksLikeEmbeddedToolCall(assistantMsg.Content) {
+		slog.Warn("[APP SERVICE] LLM emitted embedded JSON tool-call as text — suppressing and falling back", "content", assistantMsg.Content)
+		streamChan <- types.StreamEvent{Type: "drain", Content: ""}
+		fallbackReq := requests.OllamaChatRequest{Messages: messages}
+		_, fallbackErr := s.ollamaClient.QueryStreamWithTools(ctx, fallbackReq, streamChan)
+		return fallbackErr
+	}
+
+	// check if LLM requested a tool execution
 	if assistantMsg != nil && len(assistantMsg.ToolCalls) > 0 {
-		// Emit reasoning event so React UI displays it immediately in the reasoning block
+		// emit reasoning event so React UI displays it immediately in the reasoning block
 		for _, toolCall := range assistantMsg.ToolCalls {
 			toolName := toolCall.Function.Name
 			slog.Info("[APP SERVICE] Ollama triggered tool call", "tool", toolName, "args", toolCall.Function.Arguments)
 
-			// Guardrail: Pre-check tool arguments for dummy/invalid values BEFORE executing or emitting tool reasoning
+			// pre-check tool arguments for dummy/invalid values BEFORE executing or emitting tool reasoning
 			if !isValidToolCallArgs(toolName, toolCall.Function.Arguments) {
 				slog.Warn("[APP SERVICE] Tool call skipped due to dummy or missing valid parameters", "tool", toolName, "args", toolCall.Function.Arguments)
 
@@ -221,7 +242,7 @@ func (s *AppService) QueryStreamWithTools(ctx context.Context, prompt string, st
 			if err != nil {
 				slog.Warn("[APP SERVICE] Tool execution failed via ToolRegistry", "tool", toolName, "err", err)
 
-				// Guardrail: If tool call failed (e.g. invalid alert_id "null") and no content was streamed yet,
+				// if tool call failed (e.g. invalid alert_id "null") and no content was streamed yet,
 				// fall back to a conversational text stream without tools to avoid sending raw error noise to user
 				if strings.TrimSpace(assistantMsg.Content) == "" {
 					slog.Info("[APP SERVICE] Falling back to direct text response without tools")

@@ -38,17 +38,17 @@ func (_m *IAppService) IngestAlert(ctx context.Context, incidentID uuid.UUID, se
 }
 
 
-// QueryStreamWithTools provides a mock function with given fields: ctx, prompt, streamChan
-func (_m *IAppService) QueryStreamWithTools(ctx context.Context, prompt string, streamChan chan<- types.StreamEvent) error {
-	ret := _m.Called(ctx, prompt, streamChan)
+// QueryStreamWithTools provides a mock function with given fields: ctx, prompt, history, streamChan
+func (_m *IAppService) QueryStreamWithTools(ctx context.Context, prompt string, history []types.HistoryMessage, streamChan chan<- types.StreamEvent) error {
+	ret := _m.Called(ctx, prompt, history, streamChan)
 
 	if len(ret) == 0 {
 		panic("no return value specified for QueryStreamWithTools")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, chan<- types.StreamEvent) error); ok {
-		r0 = rf(ctx, prompt, streamChan)
+	if rf, ok := ret.Get(0).(func(context.Context, string, []types.HistoryMessage, chan<- types.StreamEvent) error); ok {
+		r0 = rf(ctx, prompt, history, streamChan)
 	} else {
 		r0 = ret.Error(0)
 	}

@@ -28,7 +28,8 @@ func NewHandler(a interfaces.IAppService, authService interfaces.IAuthService) *
 }
 
 type queryRequest struct {
-	Input string `json:"input"`
+	Input   string                 `json:"input"`
+	History []types.HistoryMessage `json:"history"`
 }
 
 // TokenExchangeHandler converts a validated Firebase token into a JWT session token
@@ -132,7 +133,7 @@ func (h *Handler) Query(c *echo.Context) error {
 
 	go func() {
 		// Pass the channel into the service so it can push events!
-		err := h.apps.QueryStreamWithTools(c.Request().Context(), req.Input, streamChan)
+		err := h.apps.QueryStreamWithTools(c.Request().Context(), req.Input, req.History, streamChan)
 		if err != nil {
 			errorChan <- err
 		}

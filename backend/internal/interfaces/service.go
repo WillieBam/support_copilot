@@ -9,7 +9,7 @@ import (
 )
 
 type IAppService interface {
-	QueryStreamWithTools(ctx context.Context, prompt string, streamChan chan<- types.StreamEvent) error
+	QueryStreamWithTools(ctx context.Context, prompt string, history []types.HistoryMessage, streamChan chan<- types.StreamEvent) error
 	IngestAlert(ctx context.Context, incidentID uuid.UUID, serviceName, severity, metrics string) error
 	RetrieveAlert(ctx context.Context, id uuid.UUID) (*models.Alert, error)
 	Intercept(ctx context.Context, prompt string) (*types.CommandResult, error)

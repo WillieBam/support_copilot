@@ -49,7 +49,7 @@ var _ = Describe("AppService (Streaming & Alerts)", func() {
 
 			streamChan := make(chan types.StreamEvent, 10)
 
-			err := appSvc.QueryStreamWithTools(ctx, "hello test", streamChan)
+			err := appSvc.QueryStreamWithTools(ctx, "hello test", nil, streamChan)
 			Expect(err).NotTo(HaveOccurred())
 			close(streamChan)
 
@@ -72,7 +72,7 @@ var _ = Describe("AppService (Streaming & Alerts)", func() {
 
 			streamChan := make(chan types.StreamEvent, 10)
 
-			err := appSvc.QueryStreamWithTools(ctx, "hello test", streamChan)
+			err := appSvc.QueryStreamWithTools(ctx, "hello test", nil, streamChan)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("Ollama returned status 500"))
 			mockOllama.AssertExpectations(GinkgoT())
@@ -87,7 +87,7 @@ var _ = Describe("AppService (Streaming & Alerts)", func() {
 
 			streamChan := make(chan types.StreamEvent, 10)
 
-			err := appSvc.QueryStreamWithTools(cancelCtx, "hello test", streamChan)
+			err := appSvc.QueryStreamWithTools(cancelCtx, "hello test", nil, streamChan)
 			Expect(err).To(HaveOccurred())
 			mockOllama.AssertExpectations(GinkgoT())
 		})
@@ -115,7 +115,7 @@ var _ = Describe("AppService (Streaming & Alerts)", func() {
 
 			streamChan := make(chan types.StreamEvent, 10)
 
-			err := appSvc.QueryStreamWithTools(ctx, "alright , thanks", streamChan)
+			err := appSvc.QueryStreamWithTools(ctx, "alright , thanks", nil, streamChan)
 			Expect(err).NotTo(HaveOccurred())
 			close(streamChan)
 
@@ -125,7 +125,7 @@ var _ = Describe("AppService (Streaming & Alerts)", func() {
 		It("should intercept /quit prompt and halt processing without invoking Ollama", func() {
 			streamChan := make(chan types.StreamEvent, 10)
 
-			err := appSvc.QueryStreamWithTools(ctx, "/quit", streamChan)
+			err := appSvc.QueryStreamWithTools(ctx, "/quit", nil, streamChan)
 			Expect(err).NotTo(HaveOccurred())
 			close(streamChan)
 
@@ -153,7 +153,7 @@ var _ = Describe("AppService (Streaming & Alerts)", func() {
 
 			streamChan := make(chan types.StreamEvent, 10)
 
-			err := customAppSvc.QueryStreamWithTools(ctx, "/quit", streamChan)
+			err := customAppSvc.QueryStreamWithTools(ctx, "/quit", nil, streamChan)
 			Expect(err).NotTo(HaveOccurred())
 			close(streamChan)
 
@@ -177,7 +177,7 @@ var _ = Describe("AppService (Streaming & Alerts)", func() {
 			).Return(&requests.OllamaMessage{Role: "assistant", Content: "Goodbye!"}, nil).Once()
 
 			streamChan := make(chan types.StreamEvent, 10)
-			err := appSvc.QueryStreamWithTools(ctx, "ok byebye", streamChan)
+			err := appSvc.QueryStreamWithTools(ctx, "ok byebye", nil, streamChan)
 			Expect(err).NotTo(HaveOccurred())
 			mockOllama.AssertExpectations(GinkgoT())
 		})
@@ -192,7 +192,7 @@ var _ = Describe("AppService (Streaming & Alerts)", func() {
 			).Return(&requests.OllamaMessage{Role: "assistant", Content: "Validating..."}, nil).Once()
 
 			streamChan := make(chan types.StreamEvent, 10)
-			err := appSvc.QueryStreamWithTools(ctx, "validate alert 550e8400-e29b-41d4-a716-446655440000", streamChan)
+			err := appSvc.QueryStreamWithTools(ctx, "validate alert 550e8400-e29b-41d4-a716-446655440000", nil, streamChan)
 			Expect(err).NotTo(HaveOccurred())
 			mockOllama.AssertExpectations(GinkgoT())
 		})
@@ -211,7 +211,7 @@ var _ = Describe("AppService (Streaming & Alerts)", func() {
 			).Return(&requests.OllamaMessage{Role: "assistant", Content: "You're welcome!"}, nil).Once()
 
 			streamChan := make(chan types.StreamEvent, 10)
-			err := customAppSvc.QueryStreamWithTools(ctx, "thanks mate", streamChan)
+			err := customAppSvc.QueryStreamWithTools(ctx, "thanks mate", nil, streamChan)
 			Expect(err).NotTo(HaveOccurred())
 			mockCls.AssertExpectations(GinkgoT())
 			mockOllama.AssertExpectations(GinkgoT())
