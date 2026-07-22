@@ -18,13 +18,24 @@ import (
 type Handler struct {
 	apps        interfaces.IAppService
 	authService interfaces.IAuthService
+	teamService interfaces.ITeamService
+	userRepo    interfaces.IUserRepository
 }
 
-func NewHandler(a interfaces.IAppService, authService interfaces.IAuthService) *Handler {
-	return &Handler{
+func NewHandler(a interfaces.IAppService, authService interfaces.IAuthService, opts ...interface{}) *Handler {
+	h := &Handler{
 		apps:        a,
 		authService: authService,
 	}
+	for _, opt := range opts {
+		if ts, ok := opt.(interfaces.ITeamService); ok {
+			h.teamService = ts
+		}
+		if ur, ok := opt.(interfaces.IUserRepository); ok {
+			h.userRepo = ur
+		}
+	}
+	return h
 }
 
 type queryRequest struct {

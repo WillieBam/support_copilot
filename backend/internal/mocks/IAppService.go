@@ -37,6 +37,35 @@ func (_m *IAppService) IngestAlert(ctx context.Context, incidentID uuid.UUID, se
 	return r0
 }
 
+// Intercept provides a mock function with given fields: ctx, prompt
+func (_m *IAppService) Intercept(ctx context.Context, prompt string) (*types.CommandResult, error) {
+	ret := _m.Called(ctx, prompt)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Intercept")
+	}
+
+	var r0 *types.CommandResult
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*types.CommandResult, error)); ok {
+		return rf(ctx, prompt)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *types.CommandResult); ok {
+		r0 = rf(ctx, prompt)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.CommandResult)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, prompt)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
 
 // QueryStreamWithTools provides a mock function with given fields: ctx, prompt, history, streamChan
 func (_m *IAppService) QueryStreamWithTools(ctx context.Context, prompt string, history []types.HistoryMessage, streamChan chan<- types.StreamEvent) error {
@@ -79,36 +108,6 @@ func (_m *IAppService) RetrieveAlert(ctx context.Context, id uuid.UUID) (*models
 
 	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID) error); ok {
 		r1 = rf(ctx, id)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// Intercept provides a mock function with given fields: ctx, prompt
-func (_m *IAppService) Intercept(ctx context.Context, prompt string) (*types.CommandResult, error) {
-	ret := _m.Called(ctx, prompt)
-
-	if len(ret) == 0 {
-		panic("no return value specified for Intercept")
-	}
-
-	var r0 *types.CommandResult
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (*types.CommandResult, error)); ok {
-		return rf(ctx, prompt)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) *types.CommandResult); ok {
-		r0 = rf(ctx, prompt)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*types.CommandResult)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, prompt)
 	} else {
 		r1 = ret.Error(1)
 	}

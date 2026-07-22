@@ -19,6 +19,7 @@ type App struct {
 	Repository  *AppRepository
 	Service     interfaces.IAppService
 	AuthService interfaces.IAuthService
+	TeamService interfaces.ITeamService
 }
 
 func NewApp() *App {
@@ -39,10 +40,11 @@ func NewApp() *App {
 
 	userRepo := postgresRepo.NewUserRepository(gormDB)
 	alertRepo := postgresRepo.NewAlertRepository(gormDB)
+	teamRepo := postgresRepo.NewTeamRepository(gormDB)
 	llmClient := llm.NewOllamaClient(cfg)
 	mcpOneClient := mcp.NewMcpOneClient(cfg)
 
-	appRepository := NewAppRepository(llmClient, userRepo, alertRepo)
+	appRepository := NewAppRepository(llmClient, userRepo, alertRepo, teamRepo)
 
 	firebaseRepository, err := firebaseRepo.NewFirebaseRepository(cfg)
 	if err != nil {
@@ -56,10 +58,12 @@ func NewApp() *App {
 	})
 
 	appService := service.NewAppService(appRepository.Alert, appRepository.LLM, mcpOneClient)
+	teamService := service.NewTeamService(appRepository.Team)
 
 	return &App{
 		Repository:  appRepository,
 		Service:     appService,
 		AuthService: authService,
+		TeamService: teamService,
 	}
 }

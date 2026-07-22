@@ -7,13 +7,15 @@ import (
 type AppRepository struct {
 	User  interfaces.IUserRepository
 	Alert interfaces.IAlertRepository
+	Team  interfaces.ITeamRepository
 	LLM   interfaces.IOllamaClient
 }
 
-func NewAppRepository(ollama interfaces.IOllamaClient, user interfaces.IUserRepository, alert interfaces.IAlertRepository) *AppRepository {
+func NewAppRepository(ollama interfaces.IOllamaClient, user interfaces.IUserRepository, alert interfaces.IAlertRepository, team interfaces.ITeamRepository) *AppRepository {
 	return &AppRepository{
 		User:  user,
 		Alert: alert,
+		Team:  team,
 		LLM:   ollama,
 	}
 }
