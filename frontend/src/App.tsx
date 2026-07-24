@@ -9,8 +9,10 @@ import { SetupTotp } from './pages/setupTotp'
 import { TotpPage } from './pages/totpPage'
 import { useAppRouter } from './hooks/useAppRouter'
 import { useWorkspaceState } from './hooks/useWorkspaceState'
-import { Brain, FileText, Users, LogOut, PanelLeftClose, PanelLeftOpen, Sun, Moon } from 'lucide-react'
+import { Brain, FileText, LogOut, PanelLeftClose, PanelLeftOpen, Sun, Moon } from 'lucide-react'
 import { useTheme } from './hooks/useTheme'
+import { TeamProvider } from './context/TeamContext'
+import { TeamSelector } from './components/team/TeamSelector'
 
 type AuthState = ReturnType<typeof useFirebaseTotpAuth>
 
@@ -47,11 +49,9 @@ function GlobalHeader({ auth }: { auth: AuthState }) {
         </button>
         {auth.isSignedIn && (
           <>
+            <TeamSelector />
             <button className="flex items-center gap-2 bg-transparent border border-border rounded-[20px] px-4 py-1.5 text-foreground hover:bg-muted transition-colors text-sm cursor-pointer">
               <FileText className="w-4 h-4 text-muted-foreground" /> Manage Instruction
-            </button>
-            <button className="flex items-center gap-2 bg-transparent border border-border rounded-[20px] px-4 py-1.5 text-foreground hover:bg-muted transition-colors text-sm cursor-pointer">
-              <Users className="w-4 h-4 text-muted-foreground" /> Manage Member
             </button>
             <button
               onClick={() => void auth.signOut()}
@@ -130,23 +130,25 @@ function App() {
   if (!auth.isAuthReady) return <LoadingScreen />
 
   return (
-    <div className="flex flex-col min-h-screen bg-transparent text-foreground w-full overflow-hidden transition-colors duration-350">
-      <GlobalHeader auth={auth} />
-      <Routes>
-        <Route path="/" element={<Navigate to={auth.isSignedIn ? '/chat' : '/login'} replace />} />
-        
-        {/* Auth routes centered over black background */}
-        <Route path="/login" element={<div className="flex-1 flex items-center justify-center"><LoginPage auth={auth} /></div>} />
-        <Route path="/register" element={<div className="flex-1 flex items-center justify-center"><RegisterPage auth={auth} /></div>} />
-        <Route path="/setup-totp" element={<div className="flex-1 flex items-center justify-center"><SetupTotp auth={auth} /></div>} />
-        <Route path="/totp" element={<div className="flex-1 flex items-center justify-center"><TotpPage auth={auth} /></div>} />
-        
-        {/* Chat Workspace */}
-        <Route path="/chat" element={<ChatWorkspace auth={auth} runtime={runtime} />} />
-        
-        <Route path="*" element={<Navigate to={auth.isSignedIn ? '/chat' : '/login'} replace />} />
-      </Routes>
-    </div>
+    <TeamProvider isSignedIn={auth.isSignedIn}>
+      <div className="flex flex-col min-h-screen bg-transparent text-foreground w-full overflow-hidden transition-colors duration-350">
+        <GlobalHeader auth={auth} />
+        <Routes>
+          <Route path="/" element={<Navigate to={auth.isSignedIn ? '/chat' : '/login'} replace />} />
+          
+          {/* Auth routes centered over black background */}
+          <Route path="/login" element={<div className="flex-1 flex items-center justify-center"><LoginPage auth={auth} /></div>} />
+          <Route path="/register" element={<div className="flex-1 flex items-center justify-center"><RegisterPage auth={auth} /></div>} />
+          <Route path="/setup-totp" element={<div className="flex-1 flex items-center justify-center"><SetupTotp auth={auth} /></div>} />
+          <Route path="/totp" element={<div className="flex-1 flex items-center justify-center"><TotpPage auth={auth} /></div>} />
+          
+          {/* Chat Workspace */}
+          <Route path="/chat" element={<ChatWorkspace auth={auth} runtime={runtime} />} />
+          
+          <Route path="*" element={<Navigate to={auth.isSignedIn ? '/chat' : '/login'} replace />} />
+        </Routes>
+      </div>
+    </TeamProvider>
   )
 }
 
