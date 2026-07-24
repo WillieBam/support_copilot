@@ -17,6 +17,7 @@ var (
 
 	teamDevOpsID   = uuid.MustParse("33333333-3333-3333-3333-333333333333")
 	teamPlatformID = uuid.MustParse("44444444-4444-4444-4444-444444444444")
+	engineerID1    = uuid.MustParse("55555555-5555-5555-5555-555555555555")
 )
 
 func InitDatabase(db *gorm.DB) {
@@ -65,6 +66,13 @@ func seedUsers(db *gorm.DB) {
 			FirebaseUID: "fb_lead_engineer_222",
 			Email:       "lead.engineer@company.com",
 			DisplayName: "Copper Lead",
+			Scope:       "engineer",
+		},
+		{
+			ID:          engineerID1,
+			FirebaseUID: "fb_an_engineer_1",
+			Email:       "an.engineer@company.com",
+			DisplayName: "An En",
 			Scope:       "engineer",
 		},
 	}
