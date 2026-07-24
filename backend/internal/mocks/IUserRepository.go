@@ -81,6 +81,36 @@ func (_m *IUserRepository) UpsertUser(ctx context.Context, user *models.User) er
 	return r0
 }
 
+// SearchUsers provides a mock function with given fields: ctx, query, limit
+func (_m *IUserRepository) SearchUsers(ctx context.Context, query string, limit int) ([]models.User, error) {
+	ret := _m.Called(ctx, query, limit)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SearchUsers")
+	}
+
+	var r0 []models.User
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, int) ([]models.User, error)); ok {
+		return rf(ctx, query, limit)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, int) []models.User); ok {
+		r0 = rf(ctx, query, limit)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]models.User)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, int) error); ok {
+		r1 = rf(ctx, query, limit)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // NewIUserRepository creates a new instance of IUserRepository. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewIUserRepository(t interface {

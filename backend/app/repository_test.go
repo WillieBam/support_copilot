@@ -12,12 +12,14 @@ var _ = Describe("AppRepository", func() {
 	It("should construct AppRepository correctly", func() {
 		mockUser := &mocks.IUserRepository{}
 		mockAlert := &mocks.IAlertRepository{}
+		mockTeam := &mocks.ITeamRepository{}
 		mockLLM := &mocks.IOllamaClient{}
 
-		appRepo := app.NewAppRepository(mockLLM, mockUser, mockAlert)
+		appRepo := app.NewAppRepository(mockLLM, mockUser, mockAlert, mockTeam)
 		Expect(appRepo).NotTo(BeNil())
 		Expect(appRepo.User).To(Equal(mockUser))
 		Expect(appRepo.Alert).To(Equal(mockAlert))
+		Expect(appRepo.Team).To(Equal(mockTeam))
 		Expect(appRepo.LLM).To(Equal(mockLLM))
 	})
 })

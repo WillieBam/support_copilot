@@ -18,13 +18,24 @@ import (
 type Handler struct {
 	apps        interfaces.IAppService
 	authService interfaces.IAuthService
+	teamService interfaces.ITeamService
+	userRepo    interfaces.IUserRepository
 }
 
-func NewHandler(a interfaces.IAppService, authService interfaces.IAuthService) *Handler {
-	return &Handler{
+func NewHandler(a interfaces.IAppService, authService interfaces.IAuthService, opts ...interface{}) *Handler {
+	h := &Handler{
 		apps:        a,
 		authService: authService,
 	}
+	for _, opt := range opts {
+		if ts, ok := opt.(interfaces.ITeamService); ok {
+			h.teamService = ts
+		}
+		if ur, ok := opt.(interfaces.IUserRepository); ok {
+			h.userRepo = ur
+		}
+	}
+	return h
 }
 
 type queryRequest struct {
@@ -213,4 +224,40 @@ func (h *Handler) RetrieveAlert(c *echo.Context) error {
 		return err
 	}
 	return c.JSON(http.StatusOK, a)
+}
+
+type UserSearchResult struct {
+	ID          uuid.UUID `json:"id"`
+	Email       string    `json:"email"`
+	DisplayName string    `json:"display_name"`
+}
+
+func (h *Handler) SearchUsers(c *echo.Context) error {
+	uidVal := c.Get("user_uid")
+	appUID, ok := uidVal.(string)
+	if !ok || appUID == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized session"})
+	}
+
+	q := c.QueryParam("q")
+	if len(q) < 2 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "search query must be at least 2 characters"})
+	}
+
+	users, err := h.userRepo.SearchUsers(c.Request().Context(), q, 10)
+	if err != nil {
+		slog.Error("[user] Error searching users", "error", err, "query", q)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to search users"})
+	}
+
+	var results []UserSearchResult
+	for _, u := range users {
+		results = append(results, UserSearchResult{
+			ID:          u.ID,
+			Email:       u.Email,
+			DisplayName: u.DisplayName,
+		})
+	}
+
+	return c.JSON(http.StatusOK, results)
 }

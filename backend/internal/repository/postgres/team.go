@@ -1,0 +1,103 @@
+package postgres
+
+import (
+	"context"
+
+	"github.com/WillieBam/support_copilot/backend/internal/interfaces"
+	"github.com/WillieBam/support_copilot/backend/types/models"
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+)
+
+type teamRepository struct {
+	db *gorm.DB
+}
+
+func NewTeamRepository(db *gorm.DB) interfaces.ITeamRepository {
+	return &teamRepository{db: db}
+}
+
+// CreateTeamWithOwner atomically creates a team and assigns the owner within a DB transaction.
+func (t *teamRepository) CreateTeamWithOwner(ctx context.Context, team *models.Team, ownerID uuid.UUID) error {
+	return t.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(team).Error; err != nil {
+			return err
+		}
+		member := models.TeamMember{
+			ID:     uuid.New(),
+			TeamID: team.ID,
+			UserID: ownerID,
+			Role:   "owner",
+		}
+		return tx.Create(&member).Error
+	})
+}
+
+func (t *teamRepository) GetTeamByID(ctx context.Context, teamID uuid.UUID) (*models.Team, error) {
+	var team models.Team
+	err := t.db.WithContext(ctx).Preload("Members.User").Where("id = ?", teamID).First(&team).Error
+	if err != nil {
+		return nil, err
+	}
+	return &team, nil
+}
+
+func (t *teamRepository) GetUserWithTeamsByID(ctx context.Context, userID uuid.UUID) (*models.User, error) {
+	var user models.User
+	err := t.db.WithContext(ctx).Preload("Memberships.Team.Members.User").Preload("Memberships.Team.Members").Preload("Memberships.Team").Where("id = ?", userID).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (t *teamRepository) AddTeamMember(ctx context.Context, member *models.TeamMember) error {
+	return t.db.WithContext(ctx).Create(member).Error
+}
+
+func (t *teamRepository) RemoveTeamMember(ctx context.Context, teamID, userID uuid.UUID) error {
+	res := t.db.WithContext(ctx).Where("team_id = ? AND user_id = ?", teamID, userID).Delete(&models.TeamMember{})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (t *teamRepository) DeleteTeam(ctx context.Context, teamID uuid.UUID) error {
+	res := t.db.WithContext(ctx).Where("id = ?", teamID).Delete(&models.Team{})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (t *teamRepository) GetMemberRole(ctx context.Context, teamID, userID uuid.UUID) (string, error) {
+	var member models.TeamMember
+	err := t.db.WithContext(ctx).Where("team_id = ? AND user_id = ?", teamID, userID).First(&member).Error
+	if err != nil {
+		return "", err
+	}
+	return member.Role, nil
+}
+
+func (t *teamRepository) ListTeamMembers(ctx context.Context, teamID uuid.UUID) ([]models.TeamMember, error) {
+	var members []models.TeamMember
+	err := t.db.WithContext(ctx).Preload("User").Where("team_id = ?", teamID).Find(&members).Error
+	return members, err
+}
+
+func (t *teamRepository) AssignTeamIncident(ctx context.Context, incident *models.TeamIncident) error {
+	return t.db.WithContext(ctx).Create(incident).Error
+}
+
+func (t *teamRepository) ListTeamIncidents(ctx context.Context, teamID uuid.UUID) ([]models.TeamIncident, error) {
+	var incidents []models.TeamIncident
+	err := t.db.WithContext(ctx).Where("team_id = ?", teamID).Order("assigned_at DESC").Find(&incidents).Error
+	return incidents, err
+}

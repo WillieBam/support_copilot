@@ -7,11 +7,12 @@ import (
 )
 
 type User struct {
-	ID            uuid.UUID  `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
-	FirebaseUID   string     `gorm:"type:varchar(255);not null;unique"`
-	Email         string     `gorm:"type:varchar(255);not null;unique"`
-	DisplayName   string     `gorm:"type:varchar(100)"`
-	CreatedAt     time.Time  `gorm:"type:timestamp(0);default:CURRENT_TIMESTAMP"`
-	DeactivatedAt *time.Time `gorm:"type:timestamp(0)"`
-	Scope         string     `gorm:"type:varchar(50);not null"`
+	ID            uuid.UUID    `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
+	FirebaseUID   string       `gorm:"type:varchar(255);not null;unique" json:"firebase_uid"`
+	Email         string       `gorm:"type:varchar(255);not null;unique" json:"email"`
+	DisplayName   string       `gorm:"type:varchar(100)" json:"display_name"`
+	CreatedAt     time.Time    `gorm:"type:timestamp(0);default:CURRENT_TIMESTAMP" json:"created_at"`
+	DeactivatedAt *time.Time   `gorm:"type:timestamp(0)" json:"deactivated_at,omitempty"`
+	Scope         string       `gorm:"type:varchar(50);not null" json:"scope"`
+	Memberships   []TeamMember `gorm:"foreignKey:UserID" json:"memberships"`
 }

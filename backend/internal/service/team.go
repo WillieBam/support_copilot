@@ -1,0 +1,199 @@
+package service
+
+import (
+	"context"
+	"errors"
+	"log/slog"
+	"strings"
+	"time"
+
+	"github.com/WillieBam/support_copilot/backend/internal/interfaces"
+	"github.com/WillieBam/support_copilot/backend/types/models"
+	"github.com/google/uuid"
+)
+
+var (
+	ErrTeamNameRequired      = errors.New("team name is required")
+	ErrTeamNameTooLong       = errors.New("team name must be 20 characters or less")
+	ErrUnauthorizedTeamOp    = errors.New("unauthorized team operation: owner permission required")
+	ErrSuperAdminRequired    = errors.New("unauthorized operation: super_admin scope required to delete a team")
+	ErrUserNotInTeam         = errors.New("user is not a member of this team")
+)
+
+type teamService struct {
+	teamRepo interfaces.ITeamRepository
+}
+
+func NewTeamService(teamRepo interfaces.ITeamRepository) interfaces.ITeamService {
+	return &teamService{teamRepo: teamRepo}
+}
+
+func (s *teamService) CreateTeam(ctx context.Context, teamName string, creatorID uuid.UUID) (*models.Team, error) {
+	name := strings.TrimSpace(teamName)
+	if name == "" {
+		return nil, ErrTeamNameRequired
+	}
+	if len(name) > 20 {
+		return nil, ErrTeamNameTooLong
+	}
+
+	team := &models.Team{
+		ID:        uuid.New(),
+		TeamName:  name,
+		CreatedAt: time.Now(),
+	}
+
+	slog.InfoContext(ctx, "[team-svc] CreateTeam: persisting team with owner", "team_id", team.ID, "team_name", name, "creator_id", creatorID)
+	err := s.teamRepo.CreateTeamWithOwner(ctx, team, creatorID)
+	if err != nil {
+		slog.ErrorContext(ctx, "[team-svc] CreateTeam: repository error", "team_name", name, "creator_id", creatorID, "error", err)
+		return nil, err
+	}
+	slog.InfoContext(ctx, "[team-svc] CreateTeam: success", "team_id", team.ID)
+	return team, nil
+}
+
+func (s *teamService) GetTeam(ctx context.Context, teamID uuid.UUID) (*models.Team, error) {
+	slog.InfoContext(ctx, "[team-svc] GetTeam: fetching team", "team_id", teamID)
+	team, err := s.teamRepo.GetTeamByID(ctx, teamID)
+	if err != nil {
+		slog.ErrorContext(ctx, "[team-svc] GetTeam: failed", "team_id", teamID, "error", err)
+		return nil, err
+	}
+	slog.InfoContext(ctx, "[team-svc] GetTeam: found", "team_id", teamID, "team_name", team.TeamName, "member_count", len(team.Members))
+	return team, nil
+}
+
+func (s *teamService) GetUserTeams(ctx context.Context, userID uuid.UUID) (*models.User, error) {
+	slog.InfoContext(ctx, "[team-svc] GetUserTeams: loading user with memberships", "user_id", userID)
+	user, err := s.teamRepo.GetUserWithTeamsByID(ctx, userID)
+	if err != nil {
+		slog.ErrorContext(ctx, "[team-svc] GetUserTeams: failed", "user_id", userID, "error", err)
+		return nil, err
+	}
+	slog.InfoContext(ctx, "[team-svc] GetUserTeams: loaded", "user_id", userID, "membership_count", len(user.Memberships))
+	return user, nil
+}
+
+func (s *teamService) AddMember(ctx context.Context, requesterID, teamID, userID uuid.UUID) error {
+	slog.InfoContext(ctx, "[team-svc] AddMember: checking requester role", "team_id", teamID, "requester_id", requesterID, "target_user_id", userID)
+	reqRole, err := s.teamRepo.GetMemberRole(ctx, teamID, requesterID)
+	if err != nil || reqRole != "owner" {
+		slog.WarnContext(ctx, "[team-svc] AddMember: requester is not owner", "team_id", teamID, "requester_id", requesterID, "role", reqRole, "error", err)
+		return ErrUnauthorizedTeamOp
+	}
+
+	member := &models.TeamMember{
+		ID:     uuid.New(),
+		TeamID: teamID,
+		UserID: userID,
+		Role:   "member",
+	}
+	slog.InfoContext(ctx, "[team-svc] AddMember: inserting member", "team_id", teamID, "member_id", member.ID, "target_user_id", userID)
+	if err := s.teamRepo.AddTeamMember(ctx, member); err != nil {
+		slog.ErrorContext(ctx, "[team-svc] AddMember: failed", "team_id", teamID, "target_user_id", userID, "error", err)
+		return err
+	}
+	slog.InfoContext(ctx, "[team-svc] AddMember: success", "team_id", teamID, "target_user_id", userID)
+	return nil
+}
+
+func (s *teamService) RemoveMember(ctx context.Context, requesterID, teamID, userID uuid.UUID) error {
+	slog.InfoContext(ctx, "[team-svc] RemoveMember: checking requester role", "team_id", teamID, "requester_id", requesterID, "target_user_id", userID)
+	reqRole, err := s.teamRepo.GetMemberRole(ctx, teamID, requesterID)
+	if err != nil || reqRole != "owner" {
+		slog.WarnContext(ctx, "[team-svc] RemoveMember: requester is not owner", "team_id", teamID, "requester_id", requesterID, "role", reqRole, "error", err)
+		return ErrUnauthorizedTeamOp
+	}
+
+	_, err = s.teamRepo.GetMemberRole(ctx, teamID, userID)
+	if err != nil {
+		slog.WarnContext(ctx, "[team-svc] RemoveMember: target user not in team", "team_id", teamID, "target_user_id", userID, "error", err)
+		return ErrUserNotInTeam
+	}
+
+	slog.InfoContext(ctx, "[team-svc] RemoveMember: removing", "team_id", teamID, "target_user_id", userID)
+	if err := s.teamRepo.RemoveTeamMember(ctx, teamID, userID); err != nil {
+		slog.ErrorContext(ctx, "[team-svc] RemoveMember: failed", "team_id", teamID, "target_user_id", userID, "error", err)
+		return err
+	}
+	slog.InfoContext(ctx, "[team-svc] RemoveMember: success", "team_id", teamID, "target_user_id", userID)
+	return nil
+}
+
+func (s *teamService) DeleteTeam(ctx context.Context, userScope string, teamID uuid.UUID) error {
+	if userScope != "super_admin" {
+		slog.WarnContext(ctx, "[team-svc] DeleteTeam: forbidden - not super_admin", "team_id", teamID, "scope", userScope)
+		return ErrSuperAdminRequired
+	}
+	slog.InfoContext(ctx, "[team-svc] DeleteTeam: deleting team", "team_id", teamID, "scope", userScope)
+	if err := s.teamRepo.DeleteTeam(ctx, teamID); err != nil {
+		slog.ErrorContext(ctx, "[team-svc] DeleteTeam: failed", "team_id", teamID, "error", err)
+		return err
+	}
+	slog.InfoContext(ctx, "[team-svc] DeleteTeam: success", "team_id", teamID)
+	return nil
+}
+
+func (s *teamService) AssignIncident(ctx context.Context, requesterID, teamID, incidentID uuid.UUID, title, status, details string) (*models.TeamIncident, error) {
+	slog.InfoContext(ctx, "[team-svc] AssignIncident: checking membership", "team_id", teamID, "requester_id", requesterID, "incident_id", incidentID)
+	_, err := s.teamRepo.GetMemberRole(ctx, teamID, requesterID)
+	if err != nil {
+		slog.WarnContext(ctx, "[team-svc] AssignIncident: requester not in team", "team_id", teamID, "requester_id", requesterID, "error", err)
+		return nil, ErrUnauthorizedTeamOp
+	}
+
+	inc := &models.TeamIncident{
+		ID:         uuid.New(),
+		IncidentID: incidentID,
+		TeamID:     teamID,
+		AssignedBy: requesterID,
+		Title:      title,
+		Status:     status,
+		Details:    details,
+		AssignedAt: time.Now(),
+	}
+
+	slog.InfoContext(ctx, "[team-svc] AssignIncident: persisting", "team_incident_id", inc.ID, "team_id", teamID, "incident_id", incidentID)
+	err = s.teamRepo.AssignTeamIncident(ctx, inc)
+	if err != nil {
+		slog.ErrorContext(ctx, "[team-svc] AssignIncident: failed", "team_id", teamID, "incident_id", incidentID, "error", err)
+		return nil, err
+	}
+	slog.InfoContext(ctx, "[team-svc] AssignIncident: success", "team_incident_id", inc.ID)
+	return inc, nil
+}
+
+func (s *teamService) ListIncidents(ctx context.Context, requesterID, teamID uuid.UUID) ([]models.TeamIncident, error) {
+	slog.InfoContext(ctx, "[team-svc] ListIncidents: checking membership", "team_id", teamID, "requester_id", requesterID)
+	_, err := s.teamRepo.GetMemberRole(ctx, teamID, requesterID)
+	if err != nil {
+		slog.WarnContext(ctx, "[team-svc] ListIncidents: requester not in team", "team_id", teamID, "requester_id", requesterID, "error", err)
+		return nil, ErrUnauthorizedTeamOp
+	}
+	incidents, err := s.teamRepo.ListTeamIncidents(ctx, teamID)
+	if err != nil {
+		slog.ErrorContext(ctx, "[team-svc] ListIncidents: failed", "team_id", teamID, "error", err)
+		return nil, err
+	}
+	slog.InfoContext(ctx, "[team-svc] ListIncidents: returning", "team_id", teamID, "count", len(incidents))
+	return incidents, nil
+}
+
+func (s *teamService) ListMembers(ctx context.Context, requesterID, teamID uuid.UUID) ([]models.TeamMember, error) {
+	slog.InfoContext(ctx, "[team-svc] ListMembers: checking membership", "team_id", teamID, "requester_id", requesterID)
+	_, err := s.teamRepo.GetMemberRole(ctx, teamID, requesterID)
+	if err != nil {
+		slog.WarnContext(ctx, "[team-svc] ListMembers: requester not in team", "team_id", teamID, "requester_id", requesterID, "error", err)
+		return nil, ErrUnauthorizedTeamOp
+	}
+	members, err := s.teamRepo.ListTeamMembers(ctx, teamID)
+	if err != nil {
+		slog.ErrorContext(ctx, "[team-svc] ListMembers: failed", "team_id", teamID, "error", err)
+		return nil, err
+	}
+	slog.InfoContext(ctx, "[team-svc] ListMembers: returning", "team_id", teamID, "count", len(members))
+	return members, nil
+}
+
+

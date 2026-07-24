@@ -28,7 +28,7 @@ func supportCopilotExec(cmd *cobra.Command, args []string) {
 	ctx := context.Background()
 
 	a := app.NewApp()
-	h := endpoint.NewHandler(a.Service, a.AuthService)
+	h := endpoint.NewHandler(a.Service, a.AuthService, a.TeamService, a.Repository.User)
 
 	s := utilserver.New(config.NewServerConfig("support-copilot"))
 
@@ -45,13 +45,24 @@ func supportCopilotExec(cmd *cobra.Command, args []string) {
 		apiGroup.POST("/alerts/ingest", h.IngestAlert)
 		apiGroup.GET("/alerts/:id", h.RetrieveAlert)
 
+		// team endpoints
+		apiGroup.POST("/teams", h.CreateTeam)
+		apiGroup.GET("/teams/me", h.GetTeams)
+		apiGroup.DELETE("/teams/:team_id", h.DeleteTeam)
+		apiGroup.GET("/teams/:team_id/members", h.GetTeamMembers)
+		apiGroup.POST("/teams/:team_id/members", h.AddTeamMember)
+		apiGroup.DELETE("/teams/:team_id/members/:user_id", h.RemoveTeamMember)
+		apiGroup.POST("/teams/:team_id/incidents", h.AssignTeamIncident)
+		apiGroup.GET("/teams/:team_id/incidents", h.GetTeamIncidents)
+		apiGroup.GET("/users/search", h.SearchUsers)
+
 		// '/query' group endpoints
 		g := e.Group("/query")
 		g.Use(middlewares.AuthMiddleware(a.AuthService))
 		g.POST("/chat", h.Query)
 
-		// serve the React SPA with a client-side routing fallback.
-		// see static.go for the full routing strategy.
+		// serve the React SPA with a client-side routing fallback
+		// see static.go for the full routing strategy
 		clientDir := config.Get().ClientDir
 		if clientDir != "" {
 			registerSPAStatic(e, clientDir)
