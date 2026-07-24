@@ -225,3 +225,39 @@ func (h *Handler) RetrieveAlert(c *echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, a)
 }
+
+type UserSearchResult struct {
+	ID          uuid.UUID `json:"id"`
+	Email       string    `json:"email"`
+	DisplayName string    `json:"display_name"`
+}
+
+func (h *Handler) SearchUsers(c *echo.Context) error {
+	uidVal := c.Get("user_uid")
+	appUID, ok := uidVal.(string)
+	if !ok || appUID == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized session"})
+	}
+
+	q := c.QueryParam("q")
+	if len(q) < 2 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "search query must be at least 2 characters"})
+	}
+
+	users, err := h.userRepo.SearchUsers(c.Request().Context(), q, 10)
+	if err != nil {
+		slog.Error("[user] Error searching users", "error", err, "query", q)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to search users"})
+	}
+
+	var results []UserSearchResult
+	for _, u := range users {
+		results = append(results, UserSearchResult{
+			ID:          u.ID,
+			Email:       u.Email,
+			DisplayName: u.DisplayName,
+		})
+	}
+
+	return c.JSON(http.StatusOK, results)
+}
