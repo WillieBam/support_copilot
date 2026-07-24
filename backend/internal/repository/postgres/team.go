@@ -44,7 +44,7 @@ func (t *teamRepository) GetTeamByID(ctx context.Context, teamID uuid.UUID) (*mo
 
 func (t *teamRepository) GetUserWithTeamsByID(ctx context.Context, userID uuid.UUID) (*models.User, error) {
 	var user models.User
-	err := t.db.WithContext(ctx).Preload("Memberships.Team").Where("id = ?", userID).First(&user).Error
+	err := t.db.WithContext(ctx).Preload("Memberships.Team.Members.User").Preload("Memberships.Team.Members").Preload("Memberships.Team").Where("id = ?", userID).First(&user).Error
 	if err != nil {
 		return nil, err
 	}

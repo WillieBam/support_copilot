@@ -29,4 +29,5 @@ type ITeamService interface {
 	DeleteTeam(ctx context.Context, userScope string, teamID uuid.UUID) error
 	AssignIncident(ctx context.Context, requesterID, teamID, incidentID uuid.UUID, title, status, details string) (*models.TeamIncident, error)
 	ListIncidents(ctx context.Context, requesterID, teamID uuid.UUID) ([]models.TeamIncident, error)
+	ListMembers(ctx context.Context, requesterID, teamID uuid.UUID) ([]models.TeamMember, error)
 }

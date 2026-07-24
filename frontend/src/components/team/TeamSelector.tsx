@@ -1,6 +1,6 @@
-import { ChevronDown, Users, UserPlus, Plus } from 'lucide-react';
+import { ChevronDown, Users, Plus } from 'lucide-react';
 import { useTeamSelectorState } from '@/components/team/TeamSelectorState';
-import { AddMemberModal } from '@/components/team/AddMemberModal';
+import { TeamMembersModal } from '@/components/team/TeamMembersModal';
 import { CreateTeamModal } from '@/components/team/CreateTeamModal';
 
 export const TeamSelector = () => {
@@ -9,12 +9,12 @@ export const TeamSelector = () => {
     activeMembership,
     isOwner,
     isOpen,
-    isAddModalOpen,
+    isMembersModalOpen,
     isCreateModalOpen,
     toggleDropdown,
     handleSelectTeam,
-    openAddModal,
-    closeAddModal,
+    openMembersModal,
+    closeMembersModal,
     openCreateModal,
     closeCreateModal,
     reloadTeams,
@@ -92,7 +92,14 @@ export const TeamSelector = () => {
             ))}
           </div>
 
-          <div className="border-t border-border mt-2 pt-2 px-2">
+          <div className="border-t border-border mt-2 pt-2 px-2 space-y-1">
+            <button
+              onClick={openMembersModal}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-colors font-medium cursor-pointer"
+            >
+              <Users className="w-3.5 h-3.5" />
+              Manage Team Members
+            </button>
             <button
               onClick={openCreateModal}
               className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-colors font-medium cursor-pointer"
@@ -100,25 +107,17 @@ export const TeamSelector = () => {
               <Plus className="w-3.5 h-3.5" />
               Create Team
             </button>
-            {isOwner && (
-              <button
-                onClick={openAddModal}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-colors font-medium cursor-pointer"
-              >
-                <UserPlus className="w-3.5 h-3.5" />
-                Add Team Member
-              </button>
-            )}
           </div>
         </div>
       )}
 
-      {/* add member modal */}
-      {isAddModalOpen && (
-        <AddMemberModal
+      {/* team members modal */}
+      {isMembersModalOpen && (
+        <TeamMembersModal
           teamId={activeMembership?.team_id || ''}
           teamName={activeMembership?.team?.team_name || ''}
-          onClose={closeAddModal}
+          isOwner={isOwner}
+          onClose={closeMembersModal}
         />
       )}
 

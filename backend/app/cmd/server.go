@@ -49,6 +49,7 @@ func supportCopilotExec(cmd *cobra.Command, args []string) {
 		apiGroup.POST("/teams", h.CreateTeam)
 		apiGroup.GET("/teams/me", h.GetTeams)
 		apiGroup.DELETE("/teams/:team_id", h.DeleteTeam)
+		apiGroup.GET("/teams/:team_id/members", h.GetTeamMembers)
 		apiGroup.POST("/teams/:team_id/members", h.AddTeamMember)
 		apiGroup.DELETE("/teams/:team_id/members/:user_id", h.RemoveTeamMember)
 		apiGroup.POST("/teams/:team_id/incidents", h.AssignTeamIncident)

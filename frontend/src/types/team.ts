@@ -5,6 +5,11 @@ export interface TeamMember {
     team_id: string;
     user_id: string;
     role: TeamRole;
+    user?: {
+        id: string;
+        email: string;
+        display_name?: string;
+    };
 }
 
 export interface Team {

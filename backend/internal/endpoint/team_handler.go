@@ -296,3 +296,37 @@ func (h *Handler) GetTeamIncidents(c *echo.Context) error {
 	return c.JSON(http.StatusOK, incidents)
 }
 
+// GetTeamMembers handles GET /api/teams/:team_id/members
+func (h *Handler) GetTeamMembers(c *echo.Context) error {
+	user, err := h.getAuthenticatedUser(c)
+	if err != nil {
+		return err
+	}
+
+	teamID, err := uuid.Parse(c.Param("team_id"))
+	if err != nil {
+		slog.Warn("[team] GetTeamMembers: invalid team_id param", "error", err)
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid team ID"})
+	}
+
+	if h.teamService == nil {
+		slog.Error("[team] GetTeamMembers: team service is nil")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "team service unavailable"})
+	}
+
+	slog.Info("[team] GetTeamMembers: fetching members", "team_id", teamID, "requester_id", user.ID)
+	members, err := h.teamService.ListMembers(c.Request().Context(), user.ID, teamID)
+	if err != nil {
+		if errors.Is(err, service.ErrUnauthorizedTeamOp) {
+			slog.Warn("[team] GetTeamMembers: unauthorized", "team_id", teamID, "requester_id", user.ID, "error", err)
+			return c.JSON(http.StatusForbidden, map[string]string{"error": err.Error()})
+		}
+		slog.Error("[team] GetTeamMembers: failed", "team_id", teamID, "error", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	slog.Info("[team] GetTeamMembers: returning members", "team_id", teamID, "member_count", len(members))
+	return c.JSON(http.StatusOK, members)
+}
+
+

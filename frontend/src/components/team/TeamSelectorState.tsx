@@ -4,7 +4,7 @@ import { useTeam } from '@/context/TeamContext';
 export const useTeamSelectorState = () => {
   const { memberships, activeMembership, activeTeamId, isOwner, selectTeam, reloadTeams } = useTeam();
   const [isOpen, setIsOpen] = useState<boolean>(false);
-  const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
+  const [isMembersModalOpen, setIsMembersModalOpen] = useState<boolean>(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
 
   const toggleDropdown = () => setIsOpen((prev) => !prev);
@@ -15,12 +15,12 @@ export const useTeamSelectorState = () => {
     setIsOpen(false);
   };
 
-  const openAddModal = () => {
+  const openMembersModal = () => {
     setIsOpen(false);
-    setIsAddModalOpen(true);
+    setIsMembersModalOpen(true);
   };
 
-  const closeAddModal = () => setIsAddModalOpen(false);
+  const closeMembersModal = () => setIsMembersModalOpen(false);
 
   const openCreateModal = () => {
     setIsOpen(false);
@@ -35,13 +35,16 @@ export const useTeamSelectorState = () => {
     activeTeamId,
     isOwner,
     isOpen,
-    isAddModalOpen,
+    isMembersModalOpen,
+    isAddModalOpen: isMembersModalOpen,
     isCreateModalOpen,
     toggleDropdown,
     closeDropdown,
     handleSelectTeam,
-    openAddModal,
-    closeAddModal,
+    openMembersModal,
+    openAddModal: openMembersModal,
+    closeMembersModal,
+    closeAddModal: closeMembersModal,
     openCreateModal,
     closeCreateModal,
     reloadTeams,
